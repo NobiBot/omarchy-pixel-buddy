@@ -39,7 +39,7 @@ try:
 except ImportError:
     sys.exit("pixel-pet-pack needs Pillow: omarchy pkg add python-pillow")
 
-VERSION = 1  # bump when the build output changes, to rebuild every pack once
+VERSION = 2  # bump when the build output changes, to rebuild every pack once
 PLUGIN = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 HOME = os.path.expanduser("~")
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or HOME + "/.local/share", "pixel-pet", "packs")
@@ -323,8 +323,12 @@ def build_pack(pid, force=False):
 
     staging = os.path.join(BUILDS, ".%s.%d" % (pid, os.getpid()))
     shutil.rmtree(staging, ignore_errors=True)
-    os.makedirs(os.path.join(staging, "webp"))
-    manifest = {"version": VERSION, "stamp": st, "builtAt": int(time.time() * 1000),
+    built_at = int(time.time() * 1000)
+    # A new folder per build: Qt keeps showing an image's old frames when a file at the same
+    # path is replaced, so every build gets paths the shell has never loaded.
+    webp_dir = "webp-%d" % built_at
+    os.makedirs(os.path.join(staging, webp_dir))
+    manifest = {"version": VERSION, "stamp": st, "builtAt": built_at, "webpDir": webp_dir,
                 "canvas": None, "sourceCanvas": None, "animations": {}, "errors": errors, "warnings": warnings}
     if anims:
         w = max(f.width for fr, _ in anims.values() for f in fr)
@@ -350,7 +354,7 @@ def build_pack(pid, force=False):
                 if b:
                     bounds = list(b) if not bounds else [min(bounds[0], b[0]), min(bounds[1], b[1]),
                                                          max(bounds[2], b[2]), max(bounds[3], b[3])]
-            path = os.path.join(staging, "webp", name.replace("/", "_") + ".webp")
+            path = os.path.join(staging, webp_dir, name.replace("/", "_") + ".webp")
             if len(padded) == 1:
                 padded[0].save(path, lossless=True)
             else:
@@ -363,6 +367,12 @@ def build_pack(pid, force=False):
     old_pic = os.path.join(out_dir, "pic")
     if os.path.isdir(old_pic):
         shutil.copytree(old_pic, os.path.join(staging, "pic"))
+    # Keep the previous build's frames until the next build: the shell may still be loading
+    # them while it rereads the index.
+    if os.path.isdir(out_dir):
+        prev = sorted(d for d in os.listdir(out_dir) if d.startswith("webp-"))
+        if prev:
+            shutil.move(os.path.join(out_dir, prev[-1]), os.path.join(staging, prev[-1]))
     write_json(os.path.join(staging, "manifest.json"), manifest)
     trash = out_dir + ".old.%d" % os.getpid()
     if os.path.isdir(out_dir):
@@ -385,7 +395,7 @@ def write_index(building=()):
                  "animations": {}, "errors": [], "warnings": []}
         try:
             man = read_json(os.path.join(BUILDS, pid, "manifest.json"))
-            entry.update(builtAt=man.get("builtAt", 0), canvas=man.get("canvas"),
+            entry.update(builtAt=man.get("builtAt", 0), webpDir=man.get("webpDir", "webp"), canvas=man.get("canvas"),
                          animations=man.get("animations", {}), errors=man.get("errors", []),
                          warnings=man.get("warnings", []))
             if pid in building:
@@ -514,7 +524,7 @@ def cmd_icons(pid, waiting, success, error):
     out = os.path.join(BUILDS, pid, "pic")
     os.makedirs(out, exist_ok=True)
     for icon, anim in (("approval", waiting), ("done", success), ("error", error)):
-        src = os.path.join(BUILDS, pid, "webp", anim.replace("/", "_") + ".webp")
+        src = os.path.join(BUILDS, pid, webp_dir_of(pid), anim.replace("/", "_") + ".webp")
         if not anim or not os.path.isfile(src):
             continue
         img = Image.open(src)
@@ -525,6 +535,13 @@ def cmd_icons(pid, waiting, success, error):
             frame = frame.crop(box)
         frame = frame.resize((frame.width * 4, frame.height * 4), Image.Resampling.NEAREST)
         frame.save(os.path.join(out, "notify-%s.png" % icon))
+
+
+def webp_dir_of(pid):
+    try:
+        return read_json(os.path.join(BUILDS, pid, "manifest.json")).get("webpDir") or "webp"
+    except (OSError, ValueError):
+        return "webp"
 
 
 def cmd_aseprite(pid):
@@ -551,15 +568,18 @@ def cmd_watch():
     """Rebuild a pack shortly after any of its files changes. Runs for the shell's lifetime."""
     cmd_init(quiet=True)
     build(pack_ids())
-    proc = subprocess.Popen(["inotifywait", "-m", "-r", "-q", "-e", "close_write,create,delete,move",
-                             "--format", "%w%f", DATA], stdout=subprocess.PIPE, bufsize=0,
-                            preexec_fn=die_with_parent)
+    def start():
+        return subprocess.Popen(["inotifywait", "-m", "-r", "-q", "-e", "close_write,create,delete,move",
+                                 "--format", "%w%f", DATA], stdout=subprocess.PIPE, bufsize=0,
+                                preexec_fn=die_with_parent)
+    procs = [start()]
     # The shell stops the watcher with SIGTERM on reloads; take inotifywait down with it.
-    signal.signal(signal.SIGTERM, lambda *_: (proc.terminate(), sys.exit(0)))
+    signal.signal(signal.SIGTERM, lambda *_: (procs[0].terminate(), sys.exit(0)))
     pending = {}  # id -> [needs build, deadline]
     # Read the pipe raw: a buffered readline() can pull several events into Python's buffer
     # while select() keeps waiting on the empty pipe, stranding them until the next change.
-    fd, buf = proc.stdout.fileno(), b""
+    fd, buf = procs[0].stdout.fileno(), b""
+    rewatch = False
     while True:
         now = time.monotonic()
         timeout = max(0, min(v[1] for v in pending.values()) - now) if pending else None
@@ -580,9 +600,18 @@ def cmd_watch():
                     continue  # sub-folders are not part of a pack
                 ext = os.path.splitext(name)[1].lower()
                 rebuild = len(parts) == 1 or (name != "pack.json" and (ext in SOURCE_EXT or ext == ".json"))
+                # inotifywait -r only watches folders created inside the tree, not moved-in ones
+                if len(parts) == 1:
+                    rewatch = True
                 cur = pending.get(pid, [False, 0])
                 pending[pid] = [cur[0] or rebuild, time.monotonic() + 1.0]
             continue
+        if rewatch:
+            rewatch = False
+            procs[0].terminate()
+            procs[0].wait()
+            procs[0] = start()
+            fd, buf = procs[0].stdout.fileno(), b""
         now = time.monotonic()
         due = [pid for pid, v in pending.items() if v[1] <= now]
         for pid in due:
@@ -594,6 +623,8 @@ def cmd_watch():
                     write_index()
             except Exception as e:
                 log("watch: %s: %s" % (pid, e))
+        if due:
+            build(pack_ids())  # catches anything that changed while inotifywait restarted
 
 
 def main(argv):

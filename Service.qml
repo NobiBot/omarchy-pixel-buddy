@@ -159,8 +159,9 @@ Scope {
   function animUrl(packId, name) {
     var e = packIndex[packId]
     if (!e || !name) return ""
-    return "file://" + cacheDir + "/packs/" + encodeURIComponent(packId) + "/webp/"
-      + encodeURIComponent(String(name).replace(/\//g, "_")) + ".webp?v=" + (e.builtAt || 0)
+    // Every build has its own folder (webpDir): Qt would keep old frames for a reused path
+    return "file://" + cacheDir + "/packs/" + encodeURIComponent(packId) + "/" + (e.webpDir || "webp") + "/"
+      + encodeURIComponent(String(name).replace(/\//g, "_")) + ".webp"
   }
 
   function makeRuntime(packId, pet) {
