@@ -51,6 +51,24 @@ Panel {
   property string previewAnim: ""
   property bool creating: false
   property bool confirmDelete: false
+  // Right-click menu on a pack thumbnail
+  property string menuPack: ""
+  property bool menuConfirm: false
+  property point menuAt: Qt.point(0, 0)
+
+  function openPackMenu(id, item) {
+    menuAt = item.mapToItem(keyCatcher, 0, item.height + Style.spacing.sm)
+    menuConfirm = false
+    menuPack = id
+  }
+
+  function deletePack(id) {
+    menuPack = ""
+    service.deletePack(id, function() {
+      if (root.browsePack === id) root.browsePack = ""
+      root.mode = "home"
+    })
+  }
 
   readonly property var pets: service ? (service.config.pets || []) : []
   readonly property string petId: petChoice && pets.some(function(p) { return p.id === petChoice }) ? petChoice : (pets.length ? pets[0].id : "")
@@ -154,6 +172,7 @@ Panel {
     mode = "home"
     creating = false
     confirmDelete = false
+    menuPack = ""
     if (browsePack && service && !service.packIndex[browsePack]) browsePack = ""
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
@@ -207,7 +226,11 @@ Panel {
         if (dx !== 0) root.stepRole(dx)
         if (dy !== 0) flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + dy * Style.space(48)))
       }
-      onCloseRequested: root.mode === "edit" ? root.mode = "home" : root.close()
+      onCloseRequested: {
+        if (root.menuPack !== "") root.menuPack = ""
+        else if (root.mode === "edit") root.mode = "home"
+        else root.close()
+      }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Flickable {
@@ -219,6 +242,7 @@ Panel {
         boundsBehavior: Flickable.StopAtBounds
         interactive: contentHeight > height
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        onContentYChanged: root.menuPack = ""
 
         Column {
           id: column
@@ -444,6 +468,7 @@ Panel {
               flickableDirection: Flickable.HorizontalFlick
               boundsBehavior: Flickable.StopAtBounds
               interactive: contentWidth > width
+              onContentXChanged: root.menuPack = ""
 
               Row {
                 id: thumbs
@@ -501,6 +526,10 @@ Panel {
                     TapHandler {
                       onTapped: root.showPack(thumb.modelData.id)
                       onDoubleTapped: { root.showPack(thumb.modelData.id); root.usePack() }
+                    }
+                    TapHandler {
+                      acceptedButtons: Qt.RightButton
+                      onTapped: root.openPackMenu(thumb.modelData.id, thumb)
                     }
                   }
                 }
@@ -1058,6 +1087,127 @@ Panel {
             color: root.service && root.service.packMessageError ? root.bad : root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
+          }
+        }
+      }
+
+      // ---------- right-click menu for a pack thumbnail
+      MouseArea {
+        anchors.fill: parent
+        visible: root.menuPack !== ""
+        z: 10
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onPressed: root.menuPack = ""
+      }
+
+      Rectangle {
+        id: packMenu
+        readonly property var entry: root.service && root.menuPack ? root.service.packIndex[root.menuPack] : null
+        readonly property bool onlyPack: root.service ? root.service.packList.length <= 1 : true
+        visible: root.menuPack !== "" && !!entry
+        z: 11
+        width: Style.space(200)
+        height: menuCol.implicitHeight + Style.spacing.md * 2
+        x: Math.max(0, Math.min(root.menuAt.x, parent.width - width))
+        y: Math.max(0, Math.min(root.menuAt.y, parent.height - height))
+        radius: Style.cornerRadius
+        color: Color.menu.background
+        border.color: Color.menu.border
+        border.width: 1
+
+        component MenuItem: Rectangle {
+          id: item
+          property string label: ""
+          property bool danger: false
+          property bool active: true
+          signal activated()
+          width: parent ? parent.width : 0
+          height: Style.spacing.popupRowHeight
+          radius: Style.cornerRadius
+          color: itemHover.hovered && active ? Color.menu.selectedBackground : "transparent"
+          opacity: active ? 1 : 0.4
+          Text {
+            anchors.left: parent.left
+            anchors.leftMargin: Style.spacing.lg
+            anchors.verticalCenter: parent.verticalCenter
+            text: item.label
+            color: item.danger ? Color.urgent : (itemHover.hovered ? Color.menu.selectedText : Color.menu.text)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+          }
+          HoverHandler { id: itemHover }
+          TapHandler { onTapped: if (item.active) item.activated() }
+        }
+
+        Column {
+          id: menuCol
+          x: Style.spacing.md
+          y: Style.spacing.md
+          width: parent.width - Style.spacing.md * 2
+          spacing: Style.spacing.xxs
+
+          Text {
+            width: parent.width
+            leftPadding: Style.spacing.lg
+            bottomPadding: Style.spacing.xs
+            text: packMenu.entry ? packMenu.entry.name : ""
+            elide: Text.ElideRight
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Column {
+            visible: !root.menuConfirm
+            width: parent.width
+            spacing: Style.spacing.xxs
+            MenuItem {
+              label: "Use for " + root.petName
+              active: !!root.service && root.service.petPackId(root.petId) !== root.menuPack
+              onActivated: { var id = root.menuPack; root.menuPack = ""; root.showPack(id); root.usePack() }
+            }
+            MenuItem {
+              label: "Edit pack"
+              onActivated: { var id = root.menuPack; root.menuPack = ""; root.showPack(id); root.edit("roles") }
+            }
+            MenuItem {
+              label: "Duplicate"
+              onActivated: {
+                var id = root.menuPack
+                root.menuPack = ""
+                root.service.duplicatePack(id, (packMenu.entry ? packMenu.entry.name : "Pack") + " copy", function(nid) { root.showPack(nid) })
+              }
+            }
+            MenuItem {
+              label: "Open folder"
+              onActivated: { var id = root.menuPack; root.menuPack = ""; root.service.openPackFolder(id) }
+            }
+            MenuItem {
+              label: packMenu.onlyPack ? "Delete (last pack)" : "Delete…"
+              danger: true
+              active: !packMenu.onlyPack
+              onActivated: root.menuConfirm = true
+            }
+          }
+
+          Column {
+            visible: root.menuConfirm
+            width: parent.width
+            spacing: Style.spacing.sm
+            Text {
+              width: parent.width
+              leftPadding: Style.spacing.lg
+              rightPadding: Style.spacing.lg
+              wrapMode: Text.WordWrap
+              text: "Delete this pack and its sprite files?"
+                + (root.service && root.service.petPackId(root.petId) === root.menuPack ? " The pet switches to another pack." : "")
+                + " They move to ~/.local/share/pixel-pet/trash."
+              color: root.fg
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+            }
+            MenuItem { label: "Delete"; danger: true; onActivated: root.deletePack(root.menuPack) }
+            MenuItem { label: "Cancel"; onActivated: root.menuConfirm = false }
           }
         }
       }
