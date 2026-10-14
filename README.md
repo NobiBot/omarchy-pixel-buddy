@@ -44,7 +44,8 @@ shows the pet.
 
 - **Home:** previews the selected pack (‹ › steps through its roles), shows how many roles are
   mapped, and lists every pack. Click a pack to look at it and **Use for <pet>** to switch to it
-  (double-click does both). **+ New** copies the Aseprite template into a new pack and opens it in
+  (double-click does both). **Right-click** a pack for Use, Edit, Duplicate, Open folder and Delete
+  (asks first, then moves the pack to `~/.local/share/pixel-pet/trash/`). **+ New** copies the Aseprite template into a new pack and opens it in
   Aseprite. **Aseprite**, **Rebuild** and **Folder** act on the selected pack.
 - **Edit pack → Roles:** the pet asks for roles (idle, walk, the six work states, …), not tag names.
   The widget guesses each role from your animation names ("Stand" → idle, "run_cycle" → walk,
