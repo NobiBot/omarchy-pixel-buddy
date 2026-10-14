@@ -422,6 +422,12 @@ def build(ids, force=False):
         for d in os.listdir(BUILDS):
             if not d.startswith(".") and d not in live:
                 shutil.rmtree(os.path.join(BUILDS, d), ignore_errors=True)
+    for f in os.listdir(CACHE):
+        if f.startswith(".build-") and f.endswith(".lock") and f[7:-5] not in pack_ids():
+            try:
+                os.remove(os.path.join(CACHE, f))
+            except OSError:
+                pass
     write_index()
 
 
@@ -546,30 +552,36 @@ def cmd_watch():
     cmd_init(quiet=True)
     build(pack_ids())
     proc = subprocess.Popen(["inotifywait", "-m", "-r", "-q", "-e", "close_write,create,delete,move",
-                             "--format", "%w%f", DATA], stdout=subprocess.PIPE, text=True, bufsize=1,
+                             "--format", "%w%f", DATA], stdout=subprocess.PIPE, bufsize=0,
                             preexec_fn=die_with_parent)
     # The shell stops the watcher with SIGTERM on reloads; take inotifywait down with it.
     signal.signal(signal.SIGTERM, lambda *_: (proc.terminate(), sys.exit(0)))
     pending = {}  # id -> [needs build, deadline]
+    # Read the pipe raw: a buffered readline() can pull several events into Python's buffer
+    # while select() keeps waiting on the empty pipe, stranding them until the next change.
+    fd, buf = proc.stdout.fileno(), b""
     while True:
         now = time.monotonic()
         timeout = max(0, min(v[1] for v in pending.values()) - now) if pending else None
-        ready, _, _ = select.select([proc.stdout], [], [], timeout)
+        ready, _, _ = select.select([fd], [], [], timeout)
         if ready:
-            line = proc.stdout.readline()
-            if not line:
+            chunk = os.read(fd, 65536)
+            if not chunk:
                 sys.exit("inotifywait stopped")
-            rel = os.path.relpath(line.rstrip("\n"), DATA)
-            parts = rel.split(os.sep)
-            pid, name = parts[0], parts[-1]
-            if pid.startswith(".") or not ID_RE.match(pid) or name.startswith(".") or name.endswith("~"):
-                continue
-            ext = os.path.splitext(name)[1].lower()
-            rebuild = len(parts) == 1 or (name != "pack.json" and (ext in SOURCE_EXT or ext == ".json"))
-            if len(parts) > 2:
-                continue  # sub-folders are not part of a pack
-            cur = pending.get(pid, [False, 0])
-            pending[pid] = [cur[0] or rebuild, time.monotonic() + 1.0]
+            buf += chunk
+            *lines, buf = buf.split(b"\n")
+            for line in lines:
+                rel = os.path.relpath(os.fsdecode(line), DATA)
+                parts = rel.split(os.sep)
+                pid, name = parts[0], parts[-1]
+                if pid.startswith(".") or not ID_RE.match(pid) or name.startswith(".") or name.endswith("~"):
+                    continue
+                if len(parts) > 2:
+                    continue  # sub-folders are not part of a pack
+                ext = os.path.splitext(name)[1].lower()
+                rebuild = len(parts) == 1 or (name != "pack.json" and (ext in SOURCE_EXT or ext == ".json"))
+                cur = pending.get(pid, [False, 0])
+                pending[pid] = [cur[0] or rebuild, time.monotonic() + 1.0]
             continue
         now = time.monotonic()
         due = [pid for pid, v in pending.items() if v[1] <= now]
