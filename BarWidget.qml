@@ -436,7 +436,7 @@ Panel {
               Text {
                 anchors.right: parent.right
                 readonly property int missing: root.view ? root.view.resolved.total - root.view.resolved.mapped : 0
-                text: missing > 0 ? missing + (missing === 1 ? " plays idle instead" : " play idle instead") : "all set"
+                text: missing > 0 ? missing + " not mapped (skipped)" : "all set"
                 color: missing > 0 ? root.warn : root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -692,7 +692,7 @@ Panel {
                           font.pixelSize: Style.font.body
                         }
                         Text {
-                          text: roleRow.source === "guess" ? "guessed" : roleRow.source === "none" ? "plays idle" : ""
+                          text: roleRow.source === "guess" ? "guessed" : roleRow.source === "none" ? (roleRow.modelData.key === "idle" ? "uses the first animation" : "skipped") : ""
                           visible: text !== ""
                           color: roleRow.source === "none" ? root.warn : root.dim
                           font.family: root.fontFamily
@@ -714,7 +714,7 @@ Panel {
                           visible: roleRow.modelData.multi !== true
                           width: parent.width
                           showLabel: false
-                          options: [{ value: "", label: "— idle —" }].concat(root.view ? root.view.names : [])
+                          options: [{ value: "", label: "— none —" }].concat(root.view ? root.view.names : [])
                           value: roleRow.list.length ? roleRow.list[0] : ""
                           onChanged: function(v) {
                             root.service.setRole(root.packId, roleRow.modelData.key, v ? [v] : [])

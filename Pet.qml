@@ -66,8 +66,20 @@ Item {
   }
 
   // 播放 name；nextOnce = 播完一遍触发 handleEnded，否则无限循环
-  function play(name, nextOnce) {
+  // Why the current animation plays: "idle", "turn", "drag", "click", or "" (anything else).
+  // One animation can fill several roles (idle doubling as drag), so the role, not the name,
+  // decides how long it loops and what comes after it.
+  property string playRole: ""
+
+  function hasRole(role, name) {
+    if (name === anim && playRole !== "") return playRole === role
+    var pool = role === "click" ? anims.clicks : anims[role]
+    return !!pool && pool.indexOf(name) >= 0
+  }
+
+  function play(name, nextOnce, role) {
     if (!name) return
+    playRole = role || ""
     log("play " + name + (nextOnce ? "" : " (loop)"))
     once = nextOnce
     var f = imgAt(front)
@@ -116,7 +128,7 @@ Item {
     pendingName = ""
     anim = ""
     pendingMove = null
-    if (anims.idle.length && anims.idle.indexOf(failed) < 0) play(Shared.pick(anims.idle), true)
+    if (anims.idle.length && anims.idle.indexOf(failed) < 0) play(Shared.pick(anims.idle), true, "idle")
   }
 
   // 像素动画一圈往往不到一秒：idle / 小动作 / 移动 / 事件动画重复整圈，直到至少 sprite.minPlaySec 秒。
@@ -134,7 +146,7 @@ Item {
     var per = sprite.playSec || {}
     var want
     if (Object.prototype.hasOwnProperty.call(per, name)) want = Number(per[name]) || 0
-    else if (anims.turn.indexOf(name) >= 0 || anims.drag.indexOf(name) >= 0 || anims.clicks.indexOf(name) >= 0) want = 0
+    else if (hasRole("turn", name) || hasRole("drag", name) || hasRole("click", name)) want = 0
     else want = Number(sprite.minPlaySec) || 0
     return Math.max(0, Math.ceil(want / cycleSec(name, frameCount) - 1e-6) - 1)
   }
@@ -173,7 +185,7 @@ Item {
   }
 
   function playIdle() {
-    if (anims.idle.length) play(Shared.pick(anims.idle, anim), true)
+    if (anims.idle.length) play(Shared.pick(anims.idle, anim), true, "idle")
   }
 
   function pickNext() {
@@ -185,14 +197,14 @@ Item {
     var roll = Math.random()
     var k = Shared.rollKind(roll, weights, { fixed: cfg.fixedEnabled === true })
     if (k === "idle") {
-      play(Shared.pick(anims.idle, anim), true)
+      play(Shared.pick(anims.idle, anim), true, "idle")
     } else if (k === "turn") {
-      play(Shared.pick(anims.turn, anim), true)
+      play(Shared.pick(anims.turn, anim), true, "turn")
     } else if (k === "move" && !moveBusy() && tryMove("") !== false) {
       // 已发起移动
     } else {
       var act = Shared.pickCategoryAction(anims.categories, anims.idle, facing, anim)
-      play(act.name, true)
+      play(act.name, true, act.id === "FALLBACK" ? "idle" : "")
     }
   }
 
@@ -202,7 +214,8 @@ Item {
     if (!ws) return false
     var pool = (anims.events || {}).workStatus || []
     var slot = pool[WS.stateIndex(ws.state)]
-    if (slot === undefined) return false
+    // Unmapped state: no animation, the pet carries on as usual
+    if (!slot || (Array.isArray(slot) && !slot.length)) return false
     play(Shared.pickSlot(slot, anim), Array.isArray(slot) && slot.length > 1)
     return true
   }
@@ -213,7 +226,7 @@ Item {
       resumeAfterPreview = false
       if (wsActive()) {
         // A previewed turn still ends facing the other way
-        if (anims.turn.indexOf(anim) >= 0) facing = facing === "left" ? "right" : "left"
+        if (hasRole("turn", anim)) facing = facing === "left" ? "right" : "left"
         if (resumeWorkStatus()) return
       }
     }
@@ -237,8 +250,8 @@ Item {
       if (!resumeWorkStatus()) playIdle()
       return
     }
-    if (anims.turn.indexOf(anim) >= 0) facing = facing === "left" ? "right" : "left"
-    if (anims.drag.indexOf(anim) >= 0 || anims.clicks.indexOf(anim) >= 0) {
+    if (hasRole("turn", anim)) facing = facing === "left" ? "right" : "left"
+    if (hasRole("drag", anim) || hasRole("click", anim)) {
       if (!resumeWorkStatus()) playIdle()
       return
     }
@@ -269,22 +282,34 @@ Item {
     }
     if (!chosen) return false
     var mp = Object.assign({}, moves["default"], chosen.params || {})
+    var distScale = size / Shared.PET_REF_WIDTH
+    function planFor(d) {
+      return Shared.planMove({
+        cx: x + size / 2,
+        cy: y + boxH / 2,
+        W: areaW,
+        H: areaH,
+        dir: d,
+        minDist: mp.minDist * distScale,
+        maxDist: mp.maxDist * distScale,
+        margin: mp.margin,
+        halfW: size / 2,
+        sideAllow: sideAllow
+      })
+    }
     // 只看 facing：转身播完时 handleEnded 已经翻过 facing，再按"正在转身"反一次方向就会倒着走
     var dir = facing === "right" ? 1 : -1
-    var distScale = size / Shared.PET_REF_WIDTH
-    var plan = Shared.planMove({
-      cx: x + size / 2,
-      cy: y + boxH / 2,
-      W: areaW,
-      H: areaH,
-      dir: dir,
-      minDist: mp.minDist * distScale,
-      maxDist: mp.maxDist * distScale,
-      margin: mp.margin,
-      halfW: size / 2,
-      sideAllow: sideAllow
-    })
+    // Without a turn animation the pet could never change direction and would get stuck at a
+    // screen edge: pick a direction per walk (the other one if blocked) and just flip the sprite.
+    var noTurn = !anims.turn.length
+    if (noTurn && Math.random() < 0.5) dir = -dir
+    var plan = planFor(dir)
+    if (!plan && noTurn) {
+      dir = -dir
+      plan = planFor(dir)
+    }
     if (!plan) return false
+    if (noTurn) facing = dir > 0 ? "right" : "left"
     log("move " + chosen.name + " " + (dir > 0 ? "right" : "left") + " (facing " + facing + ")")
     pendingMove = Object.assign({}, plan, { dir: dir, leadSec: mp.leadSec, tailSec: mp.tailSec, speed: Number(mp.speed) || 0, name: chosen.name })
     play(chosen.name, true)
@@ -424,14 +449,17 @@ Item {
     id: stage
     width: pet.size
     height: pet.boxH
+    // Sprites drawn off-center are shifted so the body (hitbox) sits in the middle of the box,
+    // where walking, mirroring and the bubble expect it
+    x: pet.rt.offsetX * pet.size
     y: pet.dragging ? 0 : pet.bottomPad
     transform: [
       Scale {
-        origin.x: pet.size / 2
+        origin.x: (0.5 - pet.rt.offsetX) * pet.size
         xScale: pet.mirrored ? -1 : 1
       },
       Scale {
-        origin.x: pet.size / 2
+        origin.x: (0.5 - pet.rt.offsetX) * pet.size
         origin.y: pet.boxH
         yScale: pet.squashY
       }
@@ -567,7 +595,7 @@ Item {
         pet.dragging = true
         pet.resumeAfterPreview = false
         pet.dragVel = { vx: 0, vy: 0 }
-        if (pet.anims.drag.length) pet.play(Shared.pick(pet.anims.drag), true)
+        if (pet.anims.drag.length) pet.play(Shared.pick(pet.anims.drag), true, "drag")
       }
       var now = Date.now()
       pet.trail = Shared.trimTrail(pet.trail.concat([{ t: now, x: p.x, y: p.y }]), now)
@@ -596,7 +624,7 @@ Item {
       }
       if (pet.anims.clicks.length) {
         pet.pendingSquash = true
-        pet.play(Shared.pick(pet.anims.clicks), true)
+        pet.play(Shared.pick(pet.anims.clicks), true, "click")
       }
     }
   }
@@ -735,7 +763,7 @@ Item {
       if (pet.cfg.balanceEnabled === false) return
       var pool = (pet.anims.events || {}).balance || []
       var slot = pool[summary.tier]
-      if (slot !== undefined && !pet.dragging && !pet.wsActive()) pet.play(Shared.pickSlot(slot, pet.anim), true)
+      if (slot && !pet.dragging && !pet.wsActive()) pet.play(Shared.pickSlot(slot, pet.anim), true)
       pet.showBubble(summary.text, "", 10000)
     }
   }
@@ -785,7 +813,7 @@ Item {
     var pool = (anims.events || {}).workStatus || []
     var slot = pool[idx]
     // Let a pack preview finish; it resumes the current work status when it ends
-    if (slot === undefined || dragging || resumeAfterPreview) return
+    if (!slot || (Array.isArray(slot) && !slot.length) || dragging || resumeAfterPreview) return
     stopMove()
     var multi = Array.isArray(slot) && slot.length > 1
     play(Shared.pickSlot(slot, anim), terminal || multi)

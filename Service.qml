@@ -188,7 +188,14 @@ Scope {
       fps: Number(sp.fps) || 10,
       canvasW: geo.width,
       canvasH: geo.height,
-      hitBox: { x0: geo.hitBox[0] / geo.width, y0: geo.hitBox[1] / geo.height, x1: geo.hitBox[2] / geo.width, y1: geo.hitBox[3] / geo.height },
+      // Hitbox recentred on the box; offsetX is how far the drawing shifts to match (Pet.qml stage)
+      offsetX: 0.5 - (geo.hitBox[0] + geo.hitBox[2]) / 2 / geo.width,
+      hitBox: {
+        x0: geo.hitBox[0] / geo.width + 0.5 - (geo.hitBox[0] + geo.hitBox[2]) / 2 / geo.width,
+        y0: geo.hitBox[1] / geo.height,
+        x1: geo.hitBox[2] / geo.width + 0.5 - (geo.hitBox[0] + geo.hitBox[2]) / 2 / geo.width,
+        y1: geo.hitBox[3] / geo.height
+      },
       feet: geo.feetY / geo.height,
       facing: geo.facing,
       size: Math.round(size),

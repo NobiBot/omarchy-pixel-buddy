@@ -36,6 +36,18 @@ A pack can mix these formats:
 Draw the pet facing left, or set "drawn facing: Right" in the editor. Any canvas works: the
 builder pads it to 16:9 and keeps the feet on the bottom edge.
 
+### Walking
+
+The pet walks on its own: every time an animation ends it picks what to do next, by default idle 55%,
+turn 15%, walk 15%, random action 15% (`animationWeights` in the config). A walk plays an animation
+from the **walk** role (one walk cycle is enough; it loops for the whole trip) while the pet slides
+across the screen at the pack's walk speed (Behavior tab, canvas pixels per second). It walks the way
+it faces. With a **turn** animation it turns around now and then; without one it picks a direction
+for every walk and simply flips. Right-click the pet → the walk entry starts a walk right away.
+
+The pet is centred on its hitbox, so a character drawn off-centre on the canvas still walks and
+flips in place; set the hitbox around the body with the geometry editor's **Fit to sprite**.
+
 ### The bar widget
 
 Add `nobi.pixel-pet` to the bar (it sits in `bar.layout.right` of `~/.config/omarchy/shell.json`).
@@ -50,7 +62,7 @@ shows the pet.
 - **Edit pack → Roles:** the pet asks for roles (idle, walk, the six work states, …), not tag names.
   The widget guesses each role from your animation names ("Stand" → idle, "run_cycle" → walk,
   "Think" → thinking). Dropdowns fix the rest. Roles with several animations pick one at random.
-  A role with nothing mapped plays idle. **Guess again** forgets your choices. Your source files
+  A role with nothing mapped is skipped: the pet just carries on (a work state still shows in the bubble). **Guess again** forgets your choices. Your source files
   are never renamed: the mapping is stored in `pack.json`.
 - **Behavior:** how long each animation loops, walk speed, and how often each random action plays.
 - **Geometry:** which way the art faces, the on-screen size, and **Open geometry editor**: drag
