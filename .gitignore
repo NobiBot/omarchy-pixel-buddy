@@ -1,0 +1,4 @@
+# Symlink to ~/.local/share/pixel-pet/packs, created by bin/pixel-pet-pack init
+/packs
+__pycache__/
+*.pyc

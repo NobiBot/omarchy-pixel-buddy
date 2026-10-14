@@ -1,0 +1,193 @@
+{
+  "whisperPrompt": "你是住在主人桌面上的一只像素小宠物，会时不时碎碎念一句。说话自然随意、短短一句（20字以内），可爱带点俏皮，不要解释你自己，不要提你是AI。",
+  "chatMemoryRounds": 5,
+  "whisperModel": {
+    "provider": "",
+    "model": ""
+  },
+  "chatModel": {
+    "provider": "",
+    "model": ""
+  },
+  "whisperImageEnabled": true,
+  "chatImageEnabled": true,
+  "chatImageLimit": 10,
+  "memes": {},
+  "notificationsEnabled": true,
+  "confineToScreen": false,
+  "workStatusTexts": [
+    [
+      "正在认真想下一步呢",
+      "让我整理一下思路~",
+      "正在梳理接下来要做什么"
+    ],
+    [
+      "正在处理任务呢",
+      "这一步正在进行中哦",
+      "正在继续干活呢，别打扰我~"
+    ],
+    [
+      "这一步处理好啦，接着看下一步",
+      "搞定一步，继续看看哦~"
+    ],
+    [
+      "需要你确认一下呢",
+      "这里要等你看一下哦",
+      "轮到你来决定啦，等你~"
+    ],
+    [
+      "这一轮搞定啦，真棒！",
+      "任务完成咯，可以摸鱼啦~"
+    ],
+    [
+      "这一步好像没跑通呢",
+      "刚才的操作遇到点问题哦",
+      "这里卡了一下，再等等你呢"
+    ]
+  ],
+  "physics": {
+    "gravity": 1400,
+    "restitution": 0.78,
+    "groundFriction": 2.5,
+    "ceilingBounce": true,
+    "throwPower": 1,
+    "petCollision": false
+  },
+  "pets": [
+    {
+      "name": "Pixel",
+      "id": "main",
+      "size": 384,
+      "balanceEnabled": true,
+      "whisperEnabled": true,
+      "workStatusEnabled": true,
+      "fixedEnabled": false,
+      "display": "both",
+      "position": {
+        "corner": "bottom-right",
+        "marginX": 24,
+        "marginY": 0
+      }
+    }
+  ],
+  "sprite": {
+    "width": 128,
+    "height": 72,
+    "feetY": 66,
+    "hitBox": [
+      46,
+      38,
+      82,
+      67
+    ],
+    "fps": 10,
+    "minPlaySec": 5,
+    "playSec": {}
+  },
+  "animations": {
+    "idle": [
+      "idle"
+    ],
+    "turn": [
+      "turn"
+    ],
+    "drag": [
+      "drag"
+    ],
+    "clicks": [
+      "click-hop",
+      "click-surprised"
+    ],
+    "moves": {
+      "default": {
+        "minDist": 100,
+        "maxDist": 360,
+        "margin": 20,
+        "leadSec": 0.2,
+        "tailSec": 0.2,
+        "speed": 24
+      },
+      "actions": [
+        {
+          "name": "walk"
+        }
+      ]
+    },
+    "categories": [
+      {
+        "id": "actions",
+        "weight": 20,
+        "actions": [
+          "sleep",
+          "stretch"
+        ]
+      }
+    ],
+    "events": {
+      "balance": [
+        "usage-plenty",
+        "usage-plenty",
+        "usage-ok",
+        "usage-ok",
+        "usage-low",
+        "usage-empty"
+      ],
+      "whisper": [
+        "whisper"
+      ],
+      "workStatus": [
+        "work-thinking",
+        "work-working",
+        "work-reviewing",
+        "work-waiting",
+        "work-success",
+        "work-error"
+      ]
+    }
+  },
+  "eventsRefreshSec": {
+    "balance": 1800,
+    "whisper": 300
+  },
+  "animationWeights": {
+    "idle": 55,
+    "turn": 15,
+    "move": 15
+  },
+  "llm": {
+    "provider": "claude",
+    "claudeModel": "haiku",
+    "codexModel": ""
+  },
+  "whisperAuto": false,
+  "workStatusDetail": false,
+  "stepSummary": {
+    "mode": "off",
+    "intervalSec": 60
+  },
+  "autoModel": {
+    "provider": "claude",
+    "claudeModel": "haiku",
+    "codexModel": "gpt-5.6-luna"
+  },
+  "agents": {
+    "claude": true,
+    "codex": true
+  },
+  "usage": {
+    "agent": "auto",
+    "source": "auto",
+    "refreshSec": 900
+  },
+  "notify": {
+    "onlyWhenUnfocused": true
+  },
+  "clickAction": "react",
+  "language": "auto",
+  "bubbleFont": {
+    "family": "",
+    "file": "",
+    "size": 14
+  },
+  "layer": "top"
+}
