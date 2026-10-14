@@ -153,5 +153,5 @@ omarchy-shell pixel-pet-studio toggle | edit roles   # the bar popup (bind it to
 
 ## Credits
 
-The code is from [agent-pet](https://github.com/chthollyphile/agent-pet) (MIT), which ported its behavior from
+Credit goes to [agent-pet](https://github.com/chthollyphile/agent-pet) (MIT), which ported its behavior from
 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet) (MIT). See LICENSE.
