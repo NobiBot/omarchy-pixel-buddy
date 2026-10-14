@@ -503,7 +503,8 @@ Item {
   // While the geometry editor is open for this pet's pack, draw what it edits on the pet itself:
   // the hitbox (click / drag area, bubble anchor) and the feet line (sits on the ground).
   readonly property bool editingGeometry: service.geometryPackId !== "" && service.geometryPackId === rt.packId
-  onEditingGeometryChanged: if (editingGeometry) stopMove()
+  // Back to the home corner, out from under the editor window, and hold still there
+  onEditingGeometryChanged: if (editingGeometry && placed && !dragging) goHome()
 
   Rectangle {
     visible: pet.editingGeometry
@@ -829,6 +830,7 @@ Item {
     if (areaW <= 0 || areaH <= 0) return
     if (!placed) {
       placed = true
+      placedSize = size
       goHome()
     } else if (!throwState && !moveDrive && !dragging) {
       clampHome()
@@ -837,6 +839,30 @@ Item {
 
   onAreaWChanged: ensurePlaced()
   onAreaHChanged: ensurePlaced()
+
+  // The position is the box's top-left corner, so a new size (pack scale, pet size, another
+  // pack) would grow the pet down and right, off the screen. Keep the feet where they were
+  // and grow around them, then pull the pet back inside the screen.
+  property real placedSize: 0
+
+  onSizeChanged: {
+    var old = placedSize
+    placedSize = size
+    if (!placed || old <= 0 || old === size || dragging) return
+    stopMove()
+    stopThrow()
+    var cx = x + old / 2
+    var bottom = y + old * 9 / 16
+    // boxH and the hitbox follow `size` through bindings that may not have updated yet
+    Qt.callLater(function() {
+      pet.x = Math.round(cx - pet.size / 2)
+      pet.y = Math.round(bottom - pet.boxH)
+      pet.clampHome()
+    })
+  }
+
+  // A new hitbox changes how far the pet may hang off the sides
+  onHitBoxChanged: if (placed && !dragging && !throwState && !moveDrive) clampHome()
 
   Component.onCompleted: {
     shownKey = rtKey
