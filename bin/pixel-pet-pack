@@ -22,6 +22,7 @@ Set ASEPRITE=/path/to/aseprite if it isn't on PATH or in the Steam library.
 
 import fcntl
 import getpass
+import hashlib
 import json
 import math
 import os
@@ -39,7 +40,7 @@ try:
 except ImportError:
     sys.exit("pixel-pet-pack needs Pillow: omarchy pkg add python-pillow")
 
-VERSION = 2  # bump when the build output changes, to rebuild every pack once
+VERSION = 3  # bump when the build output changes, to rebuild every pack once
 PLUGIN = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 HOME = os.path.expanduser("~")
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or HOME + "/.local/share", "pixel-pet", "packs")
@@ -360,8 +361,12 @@ def build_pack(pid, force=False):
             else:
                 padded[0].save(path, save_all=True, append_images=padded[1:], duration=durations,
                                loop=0, lossless=True, minimize_size=False)
-            manifest["animations"][name] = {"ms": sum(durations), "frames": len(padded),
-                                            "bounds": bounds, "source": origin[name]}
+            # Fingerprint of the frames, so the shell can tell which animations a save changed
+            digest = hashlib.md5(repr(durations).encode())
+            for f in padded:
+                digest.update(f.tobytes())
+            manifest["animations"][name] = {"ms": sum(durations), "frames": len(padded), "bounds": bounds,
+                                            "source": origin[name], "hash": digest.hexdigest()[:16]}
     elif not errors:
         errors.append("no animations found; add a .aseprite, .png, .gif or .webp file")
     old_pic = os.path.join(out_dir, "pic")

@@ -552,7 +552,11 @@ Panel {
                   var name = newName.text.trim()
                   if (!name) return
                   root.creating = false
-                  root.service.newPack(name, function(id) { root.showPack(id) })
+                  // A new pack goes straight onto the pet, so saves in Aseprite show up there
+                  root.service.newPack(name, function(id) {
+                    root.service.setPetPack(root.petId, id, true)
+                    root.showPack(id)
+                  })
                 }
               }
               Button { id: cancelBtn; text: "Cancel"; bordered: true; onClicked: root.creating = false }

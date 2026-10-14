@@ -113,6 +113,9 @@ Scope {
   property string packMessage: ""
   property bool packMessageError: false
   property string busyPack: ""
+  // packId -> { builtAt, names }: animations whose frames changed in the latest rebuild,
+  // so the pet can show what you just saved
+  property var packChanges: ({})
 
   readonly property var emptyRuntime: makeRuntime("")
 
@@ -223,6 +226,17 @@ Scope {
       if (b.id === "default") return 1
       return String(a.name).localeCompare(String(b.name))
     })
+    var changes = Object.assign({}, packChanges)
+    list.forEach(function(p) {
+      var old = root.packIndex[p.id]
+      if (!old || !old.builtAt || !p.builtAt || old.builtAt === p.builtAt) return
+      var was = old.animations || {}
+      changes[p.id] = { builtAt: p.builtAt, names: Object.keys(p.animations || {}).filter(function(n) {
+        // New animations count; without an old fingerprint there's nothing to compare
+        return !was[n] || (!!was[n].hash && was[n].hash !== p.animations[n].hash)
+      }) }
+    })
+    packChanges = changes
     var busy = list.filter(function(p) { return p.status === "building" })[0]
     busyPack = busy ? busy.id : (packTask.running ? busyPack : "")
     packIndex = map
@@ -289,8 +303,9 @@ Scope {
     }
   }
 
-  function setPetPack(petId, packId) {
-    if (!packIndex[packId]) return "no-pack"
+  // `pending` = the pack was just created and may not be in the index yet
+  function setPetPack(petId, packId, pending) {
+    if (!packIndex[packId] && !pending) return "no-pack"
     var pets = Object.assign({}, uiState.pets || {})
     pets[petId] = packId
     uiState = Object.assign({}, uiState, { pets: pets })

@@ -204,6 +204,14 @@ Item {
 
   function handleEnded() {
     if (dragging) return
+    if (resumeAfterPreview) {
+      resumeAfterPreview = false
+      if (wsActive()) {
+        // A previewed turn still ends facing the other way
+        if (anims.turn.indexOf(anim) >= 0) facing = facing === "left" ? "right" : "left"
+        if (resumeWorkStatus()) return
+      }
+    }
     // 移动动画播完就收尾位移：别让还没跑完的 moveDrive 挡住下一次挑选
     if (moveDrive && moveDrive.name === anim) finishMove()
     var events = anims.events || {}
@@ -527,6 +535,7 @@ Item {
       if (!pet.dragging) {
         if (Math.hypot(p.x - d.sx, p.y - d.sy) < Shared.DRAG_THRESHOLD) return
         pet.dragging = true
+        pet.resumeAfterPreview = false
         pet.dragVel = { vx: 0, vy: 0 }
         if (pet.anims.drag.length) pet.play(Shared.pick(pet.anims.drag), true)
       }
@@ -745,7 +754,8 @@ Item {
     else wsBubbleTimer.stop()
     var pool = (anims.events || {}).workStatus || []
     var slot = pool[idx]
-    if (slot === undefined || dragging) return
+    // Let a pack preview finish; it resumes the current work status when it ends
+    if (slot === undefined || dragging || resumeAfterPreview) return
     stopMove()
     var multi = Array.isArray(slot) && slot.length > 1
     play(Shared.pickSlot(slot, anim), terminal || multi)
@@ -756,14 +766,31 @@ Item {
   readonly property string rtKey: rt.packId + "@" + rt.version
   property string shownKey: ""
 
+  // Shows the animations a save changed (or idle, after switching packs) once, then goes back
+  // to what the pet was doing, so an edit is visible right away even while an agent is working.
+  property bool resumeAfterPreview: false
+
   onRtKeyChanged: {
     if (shownKey === "" || shownKey === rtKey) return
+    var samePack = shownKey.split("@")[0] === rt.packId
     shownKey = rtKey
     log("pack " + rtKey)
     stopMove()
     pendingName = ""
     anim = ""
-    if (!dragging && !resumeWorkStatus()) playIdle()
+    if (dragging) return
+    var ch = samePack ? service.packChanges[rt.packId] : null
+    var changed = ch && ch.builtAt === rt.version
+      ? ch.names.filter(function(n) { return rt.durations[n] !== undefined }) : []
+    var name = changed.length ? changed[0] : (anims.idle.length ? Shared.pick(anims.idle) : "")
+    if (!name) {
+      if (!resumeWorkStatus()) playIdle()
+      return
+    }
+    resumeAfterPreview = true
+    play(name, true)
+    if (changed.length)
+      showBubble(service.tr("packUpdated", { names: changed.slice(0, 3).join(", ") + (changed.length > 3 ? " …" : "") }), "", 3500)
   }
 
   // 窗口刚创建时宽高还是 0，按 0 算角落会落到屏幕外：等拿到真实尺寸再摆放
