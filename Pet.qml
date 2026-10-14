@@ -177,6 +177,11 @@ Item {
   }
 
   function pickNext() {
+    // Hold still while the geometry editor is open, so the outlines are easy to judge
+    if (editingGeometry) {
+      playIdle()
+      return
+    }
     var roll = Math.random()
     var k = Shared.rollKind(roll, weights, { fixed: cfg.fixedEnabled === true })
     if (k === "idle") {
@@ -495,6 +500,30 @@ Item {
     height: pet.hitH
   }
 
+  // While the geometry editor is open for this pet's pack, draw what it edits on the pet itself:
+  // the hitbox (click / drag area, bubble anchor) and the feet line (sits on the ground).
+  readonly property bool editingGeometry: service.geometryPackId !== "" && service.geometryPackId === rt.packId
+  onEditingGeometryChanged: if (editingGeometry) stopMove()
+
+  Rectangle {
+    visible: pet.editingGeometry
+    x: pet.hitX
+    y: pet.hitY
+    width: pet.hitW
+    height: pet.hitH
+    color: "transparent"
+    border.color: "#e0a050"
+    border.width: 2
+  }
+
+  Rectangle {
+    visible: pet.editingGeometry && !pet.dragging
+    y: pet.boxH - 1
+    width: pet.size
+    height: 2
+    color: "#9ece6a"
+  }
+
   MouseArea {
     id: hit
     x: pet.hitX
@@ -654,7 +683,7 @@ Item {
     onTriggered: pet.wsBubble = null
   }
 
-  readonly property var bubbleContent: tempBubble || wsBubble
+  readonly property var bubbleContent: editingGeometry ? { text: service.tr("geometryBubble"), meme: "" } : (tempBubble || wsBubble)
 
   Bubble {
     id: bubble
