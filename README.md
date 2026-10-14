@@ -21,8 +21,8 @@ After changing the plugin's QML yourself, run `omarchy restart shell`.
 Every pet design is a **pack**: a folder in `packs/` holding the art plus an optional `pack.json`.
 `packs/` is a symlink to `~/.local/share/pixel-pet/packs/`. Omarchy reloads every plugin when a file
 inside `~/.config/omarchy/plugins/` changes, and the symlink keeps pack edits and rebuilds from
-triggering that. The original slime is the `default` pack, and `templates/pet.aseprite` is the starter
-file for new packs.
+triggering that. The original slime is the `default` pack (`templates/pet.aseprite` recreates it on a fresh
+install); duplicate it from its right-click menu if you want to start from the slime.
 
 A pack can mix these formats:
 
@@ -45,8 +45,8 @@ shows the pet.
 - **Home:** previews the selected pack (‹ › steps through its roles), shows how many roles are
   mapped, and lists every pack. Click a pack to look at it and **Use for <pet>** to switch to it
   (double-click does both). **Right-click** a pack for Use, Edit, Duplicate, Open folder and Delete
-  (asks first, then moves the pack to `~/.local/share/pixel-pet/trash/`). **+ New** copies the Aseprite template into a new pack and opens it in
-  Aseprite. **Aseprite**, **Rebuild** and **Folder** act on the selected pack.
+  (asks first, then moves the pack to `~/.local/share/pixel-pet/trash/`). **+ New** creates a pack with a blank 128×72 Aseprite canvas (one frame tagged
+  `idle`), puts it on the pet and opens it in Aseprite. **Aseprite**, **Rebuild** and **Folder** act on the selected pack.
 - **Edit pack → Roles:** the pet asks for roles (idle, walk, the six work states, …), not tag names.
   The widget guesses each role from your animation names ("Stand" → idle, "run_cycle" → walk,
   "Think" → thinking). Dropdowns fix the rest. Roles with several animations pick one at random.

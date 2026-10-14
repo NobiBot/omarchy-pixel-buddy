@@ -481,6 +481,38 @@ def cmd_init(quiet=False):
         log("packs: %s" % ", ".join(pack_ids()) or "none")
 
 
+BLANK_LUA = """
+local s = Sprite(tonumber(app.params.w), tonumber(app.params.h), ColorMode.RGB)
+s.layers[1].name = "pet"
+local tag = s:newTag(1, 1)
+tag.name = "idle"
+s.frames[1].duration = 0.1
+s:saveAs(app.params.out)
+"""
+
+
+def blank_aseprite(path):
+    """An empty RGB canvas at the recommended size, with one frame tagged "idle"."""
+    ase = find_aseprite()
+    if not ase:
+        raise PackError("Aseprite not found; set ASEPRITE=/path/to/aseprite")
+    try:
+        sprite = read_json(os.path.join(PLUGIN, "assets", "config.json")).get("sprite") or {}
+    except (OSError, ValueError):
+        sprite = {}
+    w, h = int(sprite.get("width") or 128), int(sprite.get("height") or 72)
+    with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as fh:
+        fh.write(BLANK_LUA)
+        script = fh.name
+    try:
+        r = subprocess.run([ase, "-b", "--script-param", "w=%d" % w, "--script-param", "h=%d" % h,
+                            "--script-param", "out=" + path, "--script", script], capture_output=True, text=True)
+    finally:
+        os.remove(script)
+    if r.returncode != 0 or not os.path.isfile(path):
+        raise PackError("Aseprite could not create a blank sprite: %s" % (r.stderr or r.stdout).strip())
+
+
 def cmd_new(name, src=None):
     name = name.strip()
     if not name:
@@ -492,10 +524,12 @@ def cmd_new(name, src=None):
         data, _ = read_pack_json(pid)
         data = dict(data or {}, name=name)
     else:
-        if not os.path.isfile(TEMPLATE):
-            raise PackError("template missing: %s" % TEMPLATE)
         os.makedirs(d)
-        shutil.copy2(TEMPLATE, os.path.join(d, pid + ".aseprite"))
+        try:
+            blank_aseprite(os.path.join(d, pid + ".aseprite"))
+        except PackError:
+            os.rmdir(d)
+            raise
         data = {"name": name, "author": getpass.getuser()}
     write_json(os.path.join(d, "pack.json"), data)
     build([pid])

@@ -594,7 +594,7 @@ Panel {
               visible: root.creating
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Copies the starter slime with every animation tag and opens it in Aseprite. Saving there updates the pet."
+              text: "Opens a blank 128×72 canvas in Aseprite with an idle tag, and puts it on the pet. Draw, save, and the pet updates. Add a tag per animation; the Roles tab maps them."
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
