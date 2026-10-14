@@ -40,7 +40,7 @@ try:
 except ImportError:
     sys.exit("pixel-pet-pack needs Pillow: omarchy pkg add python-pillow")
 
-VERSION = 3  # bump when the build output changes, to rebuild every pack once
+VERSION = 4  # bump when the build output changes, to rebuild every pack once
 PLUGIN = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 HOME = os.path.expanduser("~")
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or HOME + "/.local/share", "pixel-pet", "packs")
@@ -104,6 +104,12 @@ def find_aseprite():
         if c and os.path.isfile(c) and os.access(c, os.X_OK):
             return c
     return None
+
+
+def anim_file(name):
+    """File name of a built animation. Escapes "/" (and "%", so "a/b" and "a%2Fb" stay apart):
+    replacing "/" with "_" made "work/typing" and "work_typing" overwrite each other."""
+    return name.replace("%", "%25").replace("/", "%2F") + ".webp"
 
 
 def slugify(name):
@@ -355,7 +361,7 @@ def build_pack(pid, force=False):
                 if b:
                     bounds = list(b) if not bounds else [min(bounds[0], b[0]), min(bounds[1], b[1]),
                                                          max(bounds[2], b[2]), max(bounds[3], b[3])]
-            path = os.path.join(staging, webp_dir, name.replace("/", "_") + ".webp")
+            path = os.path.join(staging, webp_dir, anim_file(name))
             if len(padded) == 1:
                 padded[0].save(path, lossless=True)
             else:
@@ -366,7 +372,8 @@ def build_pack(pid, force=False):
             for f in padded:
                 digest.update(f.tobytes())
             manifest["animations"][name] = {"ms": sum(durations), "frames": len(padded), "bounds": bounds,
-                                            "source": origin[name], "hash": digest.hexdigest()[:16]}
+                                            "source": origin[name], "hash": digest.hexdigest()[:16],
+                                            "file": anim_file(name)}
     elif not errors:
         errors.append("no animations found; add a .aseprite, .png, .gif or .webp file")
     old_pic = os.path.join(out_dir, "pic")
@@ -563,7 +570,7 @@ def cmd_icons(pid, waiting, success, error):
     out = os.path.join(BUILDS, pid, "pic")
     os.makedirs(out, exist_ok=True)
     for icon, anim in (("approval", waiting), ("done", success), ("error", error)):
-        src = os.path.join(BUILDS, pid, webp_dir_of(pid), anim.replace("/", "_") + ".webp")
+        src = os.path.join(BUILDS, pid, webp_dir_of(pid), anim_file(anim)) if anim else ""
         if not anim or not os.path.isfile(src):
             continue
         img = Image.open(src)

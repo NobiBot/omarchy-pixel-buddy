@@ -162,9 +162,12 @@ Scope {
   function animUrl(packId, name) {
     var e = packIndex[packId]
     if (!e || !name) return ""
+    // The manifest names each file; builds before it had one replaced "/" with "_"
+    var a = (e.animations || {})[name]
+    var file = a && a.file ? a.file : String(name).replace(/\//g, "_") + ".webp"
     // Every build has its own folder (webpDir): Qt would keep old frames for a reused path
     return "file://" + cacheDir + "/packs/" + encodeURIComponent(packId) + "/" + (e.webpDir || "webp") + "/"
-      + encodeURIComponent(String(name).replace(/\//g, "_")) + ".webp"
+      + encodeURIComponent(file)
   }
 
   function makeRuntime(packId, pet) {
