@@ -1,13 +1,13 @@
 import QtQuick
 import qs.Commons
 
-// 右键「对话」的输入框：回车发送、Esc 关闭。打开期间 overlay 独占键盘。
-// 回复由 Service.speak 以碎碎念同款形式（说话动画 + 气泡）显示。
+// Input box for the right-click "Chat" item: Enter sends, Esc closes. While open the overlay takes the keyboard.
+// Replies are shown by Service.speak the same way as murmurs (talking animation + bubble).
 Rectangle {
   id: chat
 
   property var service
-  property var pet: null
+  property var buddy: null
   property bool open: false
   property real areaWidth: 0
   property real areaHeight: 0
@@ -20,11 +20,11 @@ Rectangle {
   border.color: Color.popups.border
   border.width: 1
 
-  function show(targetPet) {
-    pet = targetPet
-    // 身体命中框右上角旁边，超出屏幕就夹回
-    var px = targetPet.x + targetPet.hitX + targetPet.hitW + 6
-    var py = targetPet.y + targetPet.hitY + 6
+  function show(targetBuddy) {
+    buddy = targetBuddy
+    // Next to the top-right corner of the body hitbox, clamped back if it goes off screen
+    var px = targetBuddy.x + targetBuddy.hitX + targetBuddy.hitW + 6
+    var py = targetBuddy.y + targetBuddy.hitY + 6
     x = Math.max(4, Math.min(areaWidth - width - 4, px))
     y = Math.max(4, Math.min(areaHeight - height - 4, py))
     input.text = ""
@@ -34,7 +34,7 @@ Rectangle {
 
   function close() {
     open = false
-    pet = null
+    buddy = null
   }
 
   TextInput {
@@ -62,10 +62,10 @@ Rectangle {
 
     function send() {
       var text = input.text.trim()
-      if (!text || !chat.pet) return
-      var r = chat.service.requestChat(chat.pet.cfg.id, text)
+      if (!text || !chat.buddy) return
+      var r = chat.service.requestChat(chat.buddy.cfg.id, text)
       if (r === "busy") return
-      chat.pet.showBubble("……", "", 0)
+      chat.buddy.showBubble("……", "", 0)
       chat.close()
     }
   }

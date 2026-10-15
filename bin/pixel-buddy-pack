@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
-"""Build and manage Pixel Pet sprite packs.
+"""Build and manage Pixel Buddy sprite packs.
 
-A pack is a folder in packs/ (a symlink to ~/.local/share/pixel-pet/packs, so writing there
+A pack is a folder in packs/ (a symlink to ~/.local/share/pixel-buddy/packs, so writing there
 never makes Omarchy reload its plugins). It holds any mix of:
   *.aseprite / *.ase   every tag is one animation; a file without tags is one animation named after it
   *.png + *.json       sprite sheet with an Aseprite/LibreSprite JSON export, or the simple format:
@@ -11,11 +11,11 @@ never makes Omarchy reload its plugins). It holds any mix of:
   *.gif / *.webp       one ready-made animation named after the file
 plus an optional pack.json (name, role mapping, geometry; the bar widget writes it).
 
-Builds go to ~/.cache/pixel-pet/packs/<id>/ as animated WebP, padded to a 16:9 canvas
-(bottom-centred), with a manifest of loop lengths and sprite bounds. ~/.cache/pixel-pet/index.json
+Builds go to ~/.cache/pixel-buddy/packs/<id>/ as animated WebP, padded to a 16:9 canvas
+(bottom-centred), with a manifest of loop lengths and sprite bounds. ~/.cache/pixel-buddy/index.json
 lists every pack for the shell.
 
-Usage: pixel-pet-pack init | index | build [ID…|--all] [--force] | new NAME | duplicate ID NAME
+Usage: pixel-buddy-pack init | index | build [ID…|--all] [--force] | new NAME | duplicate ID NAME
        | delete ID | save ID JSON | icons ID WAITING SUCCESS ERROR | aseprite ID | watch
 Set ASEPRITE=/path/to/aseprite if it isn't on PATH or in the Steam library.
 """
@@ -38,18 +38,18 @@ import time
 try:
     from PIL import Image, ImageSequence
 except ImportError:
-    sys.exit("pixel-pet-pack needs Pillow: omarchy pkg add python-pillow")
+    sys.exit("pixel-buddy-pack needs Pillow: omarchy pkg add python-pillow")
 
 VERSION = 4  # bump when the build output changes, to rebuild every pack once
 PLUGIN = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 HOME = os.path.expanduser("~")
-DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or HOME + "/.local/share", "pixel-pet", "packs")
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or HOME + "/.local/share", "pixel-buddy", "packs")
 TRASH = os.path.join(os.path.dirname(DATA), "trash")
-CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or HOME + "/.cache", "pixel-pet")
+CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or HOME + "/.cache", "pixel-buddy")
 BUILDS = os.path.join(CACHE, "packs")
 INDEX = os.path.join(CACHE, "index.json")
 LINK = os.path.join(PLUGIN, "packs")
-TEMPLATE = os.path.join(PLUGIN, "templates", "pet.aseprite")
+TEMPLATE = os.path.join(PLUGIN, "templates", "buddy.aseprite")
 SOURCE_EXT = {".aseprite": "aseprite", ".ase": "aseprite", ".png": "sheet", ".gif": "gif", ".webp": "webp"}
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
@@ -306,7 +306,7 @@ def build_pack(pid, force=False):
             pass
     errors, warnings, anims, origin = [], [], {}, {}
     ase = None
-    with tempfile.TemporaryDirectory(prefix="pixel-pet-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="pixel-buddy-") as tmp:
         for s in sources(pid):
             path = os.path.join(d, s["file"])
             try:
@@ -340,7 +340,7 @@ def build_pack(pid, force=False):
     if anims:
         w = max(f.width for fr, _ in anims.values() for f in fr)
         h = max(f.height for fr, _ in anims.values() for f in fr)
-        # The pet's physics assume a 16:9 box: pad the canvas out, keeping the feet on the bottom edge.
+        # The buddy's physics assume a 16:9 box: pad the canvas out, keeping the feet on the bottom edge.
         k = max(math.ceil(w / 16), math.ceil(h / 9))
         cw, ch = (w, h) if w * 9 == h * 16 else (16 * k, 9 * k)
         if (cw, ch) != (w, h):
@@ -481,7 +481,7 @@ def cmd_init(quiet=False):
     if not pack_ids() and os.path.isfile(TEMPLATE):
         d = os.path.join(DATA, "default")
         os.makedirs(d)
-        shutil.copy2(TEMPLATE, os.path.join(d, "pet.aseprite"))
+        shutil.copy2(TEMPLATE, os.path.join(d, "buddy.aseprite"))
         write_json(os.path.join(d, "pack.json"), {"name": "Default"})
         log("created the default pack from the template")
     elif not quiet:
@@ -490,7 +490,7 @@ def cmd_init(quiet=False):
 
 BLANK_LUA = """
 local s = Sprite(tonumber(app.params.w), tonumber(app.params.h), ColorMode.RGB)
-s.layers[1].name = "pet"
+s.layers[1].name = "buddy"
 local tag = s:newTag(1, 1)
 tag.name = "idle"
 s.frames[1].duration = 0.1
@@ -706,7 +706,7 @@ def main(argv):
             print(__doc__.strip(), file=sys.stderr)
             return 2
     except PackError as e:
-        print("pixel-pet-pack: %s" % e, file=sys.stderr)
+        print("pixel-buddy-pack: %s" % e, file=sys.stderr)
         return 1
     return 0
 

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "id": "nobi.pixel-pet",
-  "name": "Pixel Pet",
+  "id": "nobi.pixel-buddy",
+  "name": "Pixel Buddy",
   "version": "0.2.0",
   "author": "nobi",
   "license": "MIT",
-  "description": "Pixel-art desktop pet that reacts to Claude Code / Codex work status, with a bar widget to manage sprite packs. Forked from chthollyphile/omarchy-agent-pet.",
+  "description": "Pixel-art desktop buddy that reacts to Claude Code / Codex work status, with a bar widget to manage sprite packs. Forked from chthollyphile/omarchy-agent-pet.",
   "kinds": [
     "service",
     "bar-widget"
@@ -15,8 +15,8 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "Pixel Pet",
-    "description": "Sprite packs for your pixel pet: switch, create and map animations",
+    "displayName": "Pixel Buddy",
+    "description": "Sprite packs for your pixel buddy: switch, create and map animations",
     "category": "Plugin"
   }
 }

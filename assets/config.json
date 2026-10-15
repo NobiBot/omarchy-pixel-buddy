@@ -1,5 +1,5 @@
 {
-  "whisperPrompt": "你是住在主人桌面上的一只像素小宠物，会时不时碎碎念一句。说话自然随意、短短一句（20字以内），可爱带点俏皮，不要解释你自己，不要提你是AI。",
+  "whisperPrompt": "You are a tiny pixel-art buddy living on your owner's desktop who murmurs to itself now and then. Keep it natural and casual: one short line (under 15 words), gentle and a little playful. Plain language, don't explain yourself, don't mention being an AI.",
   "chatMemoryRounds": 5,
   "whisperModel": {
     "provider": "",
@@ -17,32 +17,32 @@
   "confineToScreen": false,
   "workStatusTexts": [
     [
-      "正在认真想下一步呢",
-      "让我整理一下思路~",
-      "正在梳理接下来要做什么"
+      "Thinking about the next step",
+      "Let me sort out my thoughts~",
+      "Planning what to do next"
     ],
     [
-      "正在处理任务呢",
-      "这一步正在进行中哦",
-      "正在继续干活呢，别打扰我~"
+      "Working on it",
+      "This step is in progress",
+      "Still busy, don't disturb me~"
     ],
     [
-      "这一步处理好啦，接着看下一步",
-      "搞定一步，继续看看哦~"
+      "That step's done, on to the next",
+      "One step down, let's keep going~"
     ],
     [
-      "需要你确认一下呢",
-      "这里要等你看一下哦",
-      "轮到你来决定啦，等你~"
+      "Need you to confirm something",
+      "Please take a look here",
+      "Your turn to decide, I'll wait~"
     ],
     [
-      "这一轮搞定啦，真棒！",
-      "任务完成咯，可以摸鱼啦~"
+      "All done this round, great job!",
+      "Task complete, time to slack off~"
     ],
     [
-      "这一步好像没跑通呢",
-      "刚才的操作遇到点问题哦",
-      "这里卡了一下，再等等你呢"
+      "That step didn't quite work",
+      "Ran into a little problem",
+      "Got stuck here, waiting for you"
     ]
   ],
   "physics": {
@@ -51,9 +51,9 @@
     "groundFriction": 2.5,
     "ceilingBounce": true,
     "throwPower": 1,
-    "petCollision": false
+    "buddyCollision": false
   },
-  "pets": [
+  "buddies": [
     {
       "name": "Pixel",
       "id": "main",
@@ -183,7 +183,6 @@
     "onlyWhenUnfocused": true
   },
   "clickAction": "react",
-  "language": "auto",
   "bubbleFont": {
     "family": "",
     "file": "",

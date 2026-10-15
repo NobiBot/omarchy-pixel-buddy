@@ -3,41 +3,40 @@ import Quickshell
 import Quickshell.Io
 import "lib/i18n.mjs" as I18n
 
-// 无头调用 claude -p / codex exec 生成一句话。一次只跑一个请求。
-// PIXEL_PET_INTERNAL=1：pixel-pet-hook 看到它直接退出，宠物自己的调用不会回灌成工作状态事件。
-// 提示词和对话历史不放进命令行参数（进程参数对本机所有用户可见）：
-// 提示词走 stdin，Claude 的系统提示词写进 stateDir（0700）下的文件，用 --system-prompt-file 传路径。
+// Runs claude -p / codex exec headless to generate one line of text. Only one request runs at a time.
+// PIXEL_BUDDY_INTERNAL=1: pixel-buddy-hook exits right away when it sees this, so the buddy's own calls don't feed back in as work status events.
+// Prompts and chat history never go in command-line arguments (process arguments are visible to every user on this machine):
+// the prompt goes through stdin, and Claude's system prompt is written to a file under stateDir (0700) whose path is passed with --system-prompt-file.
 Scope {
   id: llm
 
-  // 区分多个实例的系统提示词文件
+  // Tells the system prompt files of several instances apart
   property string name: "llm"
-  property string lang: "zh"
   property string home: ""
   property string stateDir: ""
   readonly property bool busy: proc.running
   property string lastUserText: ""
-  // 调用方自定义标记（步骤总结用它记住是哪个会话）
+  // Caller's own tag (step summaries use it to remember which session it was for)
   property string tag: ""
 
-  property string petId: ""
+  property string buddyId: ""
   property string kind: ""
   property string meme: ""
   property bool timedOut: false
 
-  // failed = true 时 text 是给用户看的失败原因
-  signal finished(string petId, string kind, string text, string meme, bool failed)
+  // When failed = true, text is the failure reason shown to the user
+  signal finished(string buddyId, string kind, string text, string meme, bool failed)
 
-  // cheap = 自动任务：Codex 额外压低推理强度
-  function run(provider, model, systemPrompt, prompt, petId, kind, meme, cheap) {
+  // cheap = automatic task: Codex also lowers its reasoning effort
+  function run(provider, model, systemPrompt, prompt, buddyId, kind, meme, cheap) {
     if (proc.running) return false
     var cmd
     if (provider === "codex") {
-      // 只要一段文字，和 claude 一样不给工具。-s read-only 只限制 shell 命令，管不到连接器、插件和联网搜索，
-      // 而 ChatGPT 账号绑定的连接器（Gmail、Drive、GitHub 等）不在 config.toml 里，--ignore-user-config 也去不掉，
-      // 所以逐项关闭。剩下的 apply_patch（部分模型内置）由 read-only + approval_policy=never 挡住写入。
-      // 功能名对应 codex-cli 0.147 的 `codex features list`；未知名字会让 codex 报错退出。
-      // 不给 PROMPT 参数时 codex exec 从 stdin 读指令
+      // Only text is needed, so like claude it gets no tools. -s read-only only restricts shell commands, not connectors, plugins or web search,
+      // and connectors tied to the ChatGPT account (Gmail, Drive, GitHub etc.) aren't in config.toml and --ignore-user-config can't remove them,
+      // so each is turned off. The remaining apply_patch (built into some models) is kept from writing by read-only + approval_policy=never.
+      // Feature names match `codex features list` in codex-cli 0.147; an unknown name makes codex exit with an error.
+      // Without a PROMPT argument, codex exec reads its instructions from stdin
       cmd = ["codex", "exec",
         "--ignore-user-config", "--ignore-rules",
         "--skip-git-repo-check", "--ephemeral",
@@ -54,7 +53,7 @@ Scope {
       proc.input = systemPrompt + "\n\n" + prompt
     } else {
       systemFile.setText(systemPrompt)
-      // 不给 prompt 参数时 claude -p 从 stdin 读
+      // Without a prompt argument, claude -p reads from stdin
       proc.input = prompt
       cmd = ["claude", "-p",
         "--system-prompt-file", systemFile.path,
@@ -66,7 +65,7 @@ Scope {
         "--output-format", "text"]
       if (model) cmd.push("--model", model)
     }
-    llm.petId = petId
+    llm.buddyId = buddyId
     llm.kind = kind
     llm.meme = meme || ""
     llm.timedOut = false
@@ -77,7 +76,7 @@ Scope {
     return true
   }
 
-  // 对话要求模型回 {"text","meme"}；不守规矩时整段当文本
+  // Chat asks the model to reply with {"text","meme"}; if it doesn't comply, the whole reply is treated as text
   function parseReply(raw) {
     var text = String(raw || "").trim()
     var m = text.match(/\{[\s\S]*\}/)
@@ -102,33 +101,33 @@ Scope {
     id: proc
     property string input: ""
     workingDirectory: llm.stateDir
-    // 写完立即关闭 stdin，CLI 读到 EOF 才开始
+    // Close stdin right after writing; the CLI only starts once it reads EOF
     onStarted: {
       proc.write(proc.input)
       proc.stdinEnabled = false
       proc.input = ""
     }
-    environment: ({ PIXEL_PET_INTERNAL: "1", AGENT_PET_INTERNAL: "1" })
+    environment: ({ PIXEL_BUDDY_INTERNAL: "1", AGENT_PET_INTERNAL: "1" })
     stdout: StdioCollector { id: out }
     stderr: StdioCollector { id: err }
 
     onExited: function(exitCode) {
       timeout.stop()
       if (llm.timedOut) {
-        llm.finished(llm.petId, llm.kind, I18n.t(llm.lang, "llmTimeout"), "", true)
+        llm.finished(llm.buddyId, llm.kind, I18n.t("llmTimeout"), "", true)
         return
       }
       if (exitCode !== 0) {
         var reason = String(err.text || out.text || "").trim().split("\n").pop()
-        llm.finished(llm.petId, llm.kind, I18n.t(llm.lang, "llmFailed", { reason: reason || I18n.t(llm.lang, "llmExitCode", { code: exitCode }) }), "", true)
+        llm.finished(llm.buddyId, llm.kind, I18n.t("llmFailed", { reason: reason || I18n.t("llmExitCode", { code: exitCode }) }), "", true)
         return
       }
       var reply = llm.parseReply(out.text)
       if (!reply.text) {
-        llm.finished(llm.petId, llm.kind, I18n.t(llm.lang, "llmEmpty"), "", true)
+        llm.finished(llm.buddyId, llm.kind, I18n.t("llmEmpty"), "", true)
         return
       }
-      llm.finished(llm.petId, llm.kind, reply.text, llm.kind === "whisper" ? llm.meme : reply.meme, false)
+      llm.finished(llm.buddyId, llm.kind, reply.text, llm.kind === "whisper" ? llm.meme : reply.meme, false)
     }
   }
 

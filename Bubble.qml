@@ -1,20 +1,20 @@
 import QtQuick
 
-// 头顶气泡：白底圆角 + 小尾巴，可带一张表情包。不接收输入（不在 overlay 的 mask 里）。
-// 样式取自 dsh-pet 的 bubble.ts（白 92%、#2b2b2b）。
+// Speech bubble above the head: white rounded box with a small tail, optionally with a meme image. Takes no input (not in the overlay's mask).
+// Style taken from dsh-pet's bubble.ts (92% white, #2b2b2b).
 Item {
   id: bubble
 
   property var content: null // { text, meme }
   property url memeDir
-  // 字体：fontFile（字体文件路径）> fontFamily（已安装字体名）> sans-serif
+  // Font: fontFile (path to a font file) > fontFamily (installed font name) > sans-serif
   property string fontFamily: ""
   property string fontFile: ""
   property int fontSize: 14
   property real tailX: width / 2
   property real maxTextWidth: 240
 
-  // 淡出期间保留最后一份内容，避免先清空再消失
+  // Keep the last content while fading out, so it doesn't go blank before disappearing
   property var shownContent: null
   onContentChanged: if (content) shownContent = content
 
@@ -56,8 +56,8 @@ Item {
       Text {
         id: label
         text: bubble.shownContent ? bubble.shownContent.text : ""
-        // 内容来自 agent 会话和模型输出，不可信：一律按纯文本显示。
-        // 默认的 AutoText 在首行像 HTML 时会按富文本解析，<img> 里的远程地址会被直接请求。
+        // Content comes from agent sessions and model output and isn't trusted: always show it as plain text.
+        // The default AutoText parses rich text when the first line looks like HTML, and remote URLs in <img> would be fetched.
         textFormat: Text.PlainText
         color: "#2b2b2b"
         font.family: bubble.resolvedFamily

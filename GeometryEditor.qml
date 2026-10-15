@@ -6,7 +6,7 @@ import qs.Ui
 
 // Feet line and hitbox editor for one pack. Opened from the bar widget's Geometry tab; lives
 // in the service so it stays open when the popup closes. Every drag is pushed to
-// service.geometryPreview, so the pets on screen follow along; Save writes pack.json.
+// service.geometryPreview, so the buddies on screen follow along; Save writes pack.json.
 PanelWindow {
   id: win
 
@@ -33,14 +33,14 @@ PanelWindow {
 
   screen: {
     var screens = Quickshell.screens
-    var first = (service.config.pets || [])[0]
+    var first = (service.config.buddies || [])[0]
     var name = first ? service.screenName(first) : ""
     for (var i = 0; i < screens.length; i++) if (screens[i].name === name) return screens[i]
     return screens.length ? screens[0] : null
   }
   color: "transparent"
   exclusionMode: ExclusionMode.Ignore
-  WlrLayershell.namespace: "pixel-pet-geometry"
+  WlrLayershell.namespace: "pixel-buddy-geometry"
   WlrLayershell.layer: WlrLayer.Overlay
   WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
   implicitWidth: card.width

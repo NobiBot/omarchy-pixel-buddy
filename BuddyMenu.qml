@@ -1,18 +1,17 @@
 import QtQuick
 import qs.Commons
 import "lib/shared.mjs" as Shared
-import "lib/i18n.mjs" as I18n
 
-// 右键菜单：动作 → 分类 → 动画（树来自 dsh-pet 的 buildMenuTree）+ 工具项。
-// 逐级展开的独立列；打开期间 overlay 整窗接收输入，点空白处或 Esc 关闭。
+// Right-click menu: actions → categories → animations (tree from dsh-pet's buildMenuTree) + tool items.
+// Columns open one level at a time; while open the overlay's whole window takes input, and clicking empty space or Esc closes it.
 Item {
   id: menu
 
   property var service
   property bool open: false
-  property var pet: null
+  property var buddy: null
   property var tree: []
-  // 每一级当前展开的节点下标：path[0] = 第一列选中项
+  // Index of the expanded node at each level: path[0] = selected item in the first column
   property var path: []
   property real originX: 0
   property real originY: 0
@@ -23,13 +22,13 @@ Item {
   visible: open
   focus: open
 
-  function show(targetPet, px, py) {
-    pet = targetPet
-    var t = I18n.translateMenuTree(Shared.buildMenuTree(targetPet.anims), service.lang)
+  function show(targetBuddy, px, py) {
+    buddy = targetBuddy
+    var t = Shared.buildMenuTree(targetBuddy.anims)
     var tools = []
-    if (targetPet.cfg.whisperEnabled !== false) tools.push({ label: service.tr(service.llmBusy ? "menuWhisperBusy" : "menuWhisper"), action: "whisper" })
+    if (targetBuddy.cfg.whisperEnabled !== false) tools.push({ label: service.tr(service.llmBusy ? "menuWhisperBusy" : "menuWhisper"), action: "whisper" })
     tools.push({ label: service.tr("menuChat"), action: "chat" })
-    if (targetPet.cfg.balanceEnabled !== false) tools.push({ label: service.tr("menuUsage"), action: "usage" })
+    if (targetBuddy.cfg.balanceEnabled !== false) tools.push({ label: service.tr("menuUsage"), action: "usage" })
     tools.push({ label: service.tr("menuHome"), action: "home" })
     tools.push({ label: service.tr("menuReload"), action: "reload" })
     tools.push({ label: service.tr("menuHide"), action: "hide" })
@@ -80,19 +79,19 @@ Item {
       hover(level, index)
       return
     }
-    var target = pet
+    var target = buddy
     close()
     if (target) target.menuAction(node)
   }
 
-  // 点空白关闭
+  // Click on empty space closes
   MouseArea {
     anchors.fill: parent
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     onPressed: menu.close()
   }
 
-  // 整体靠左展开还是靠右：放不下就翻到点击点左边
+  // Open to the left or right of the click: flip to the left when it doesn't fit
   readonly property bool flipLeft: originX + colW * Math.max(columnCount, 3) > width
 
   Repeater {
@@ -102,7 +101,7 @@ Item {
       id: col
       required property int index
       readonly property var items: menu.columnItems(index)
-      // 子列与父列选中行对齐，超出底部则上移
+      // A child column lines up with its parent's selected row, moving up if it would run off the bottom
       readonly property real wantY: index === 0 ? menu.originY : menu.originY + menu.rowOffset(index) * menu.rowH
       x: menu.flipLeft ? menu.originX - (index + 1) * menu.colW : menu.originX + index * menu.colW
       y: Math.max(4, Math.min(menu.height - height - 4, wantY))
@@ -174,7 +173,7 @@ Item {
     }
   }
 
-  // 第 level 列应对齐到的行：前面各列选中行的累计偏移
+  // Row that column `level` lines up with: the summed offsets of the selected rows in the columns before it
   function rowOffset(level) {
     var off = 0
     for (var i = 0; i < level; i++) off += path[i] || 0

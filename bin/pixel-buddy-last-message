@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Prints the latest assistant text of the current turn from the end of a Claude Code / Codex transcript (JSONL).
+# Usage: PIXEL_BUDDY_TRANSCRIPT=<transcript_path> [PIXEL_BUDDY_SINCE=<since_iso>] pixel-buddy-last-message
+#   since_iso: when this turn started (ISO 8601 UTC). Older records are ignored so last turn's words don't show.
+#   The path comes in an env var and the file through a redirect: transcript paths contain the project path and session ID, so they never go in process arguments.
+# Reads only the last 400 KB of the file; prints at most 2000 characters, or nothing when none is found.
+path=${PIXEL_BUDDY_TRANSCRIPT:-}
+since=${PIXEL_BUDDY_SINCE:-}
+[[ -f $path ]] || exit 0
+tail -c 400000 < "$path" | jq -Rr --arg since "$since" '
+  fromjson?
+  | select((.timestamp // "") >= $since)
+  | if .type == "assistant" then
+      (.message.content[]? | select(.type == "text") | .text)
+    elif .type == "response_item" and .payload.type == "message" and .payload.role == "assistant" then
+      (.payload.content[]? | select(.type == "output_text") | .text)
+    else empty end
+  | select(test("\\S"))
+  | @json
+' 2>/dev/null | tail -n 1 | jq -r '.[0:2000]' 2>/dev/null

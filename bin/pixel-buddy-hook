@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Claude Code / Codex hook bridge: forwards hook events to pixel-buddy (the Omarchy plugin or a standalone instance).
+# Usage (the command in the hooks config): pixel-buddy-hook claude | pixel-buddy-hook codex
+#
+# Constraints:
+# - Prints nothing to stdout (stdout from UserPromptSubmit / SessionStart gets injected into the model's context);
+# - Always exits 0 and returns immediately: sending happens in the background so it doesn't slow the agent down.
+# - Exits right away when PIXEL_BUDDY_INTERNAL=1: the buddy's own claude -p / codex exec calls don't feed events back in.
+# - Event contents (questions, tool arguments, reply excerpts) never go in command-line arguments: process arguments are visible to every user on this machine.
+#   Events go through a pipe to socat, which writes them into the Unix socket the buddy listens on; socat's arguments hold only the socket path.
+
+[[ ${PIXEL_BUDDY_INTERNAL:-} == 1 ]] && exit 0
+agent=${1:-claude}
+payload=$(cat)
+
+# Same as EventServer.qml; does nothing when the buddy isn't running (no socket) or socat isn't installed
+sock=${XDG_RUNTIME_DIR:-/run/user/$UID}/pixel-buddy/events.sock
+[[ -S $sock ]] && command -v socat >/dev/null || exit 0
+
+# Whether the terminal sending the event is focused: walk up the parent chain from this process and see whether it reaches the pid of Hyprland's active window
+focused=false
+active_pid=$(hyprctl activewindow -j 2>/dev/null | jq -r '.pid // empty' 2>/dev/null)
+if [[ $active_pid =~ ^[0-9]+$ ]]; then
+  pid=$$
+  while [[ $pid =~ ^[0-9]+$ ]] && (( pid > 1 )); do
+    if [[ $pid == "$active_pid" ]]; then focused=true; break; fi
+    # /proc/<pid>/stat is "pid (comm) state ppid ...", and comm can contain spaces and parentheses: take ppid from after the last ") "
+    { read -r stat < "/proc/$pid/stat"; } 2>/dev/null || break
+    read -r _ pid _ <<<"${stat##*) }"
+  done
+fi
+
+# Pick only the fields needed: tool_input / tool_response can be large
+event=$(jq -c --arg agent "$agent" --argjson focused "$focused" '{
+  agent: $agent,
+  event: (.hook_event_name // ""),
+  session: (.session_id // ""),
+  cwd: (.cwd // ""),
+  tool: (.tool_name // ""),
+  notificationType: (.notification_type // ""),
+  message: ((.message // .error // "") | tostring | .[0:200]),
+  # Tool argument summary: command / file path / search term etc., first 120 characters of the first line
+  detail: ((.tool_input // {})
+    | if type == "object" then (.command // .cmd // .file_path // .path // .pattern // .url // .query // .description // "") else . end
+    | if type == "array" then map(tostring) | join(" ") else tostring end
+    | (split("\n")[0] // "") | .[0:120]),
+  # The request for this turn (for step summaries), sent only on UserPromptSubmit, cut to the first 300 characters
+  prompt: (if .hook_event_name == "UserPromptSubmit" then ((.prompt // "") | tostring | .[0:300]) else "" end),
+  # Transcript path (the buddy reads it itself when stepSummary.mode = transcript) and the last reply on Stop
+  transcript: (.transcript_path // ""),
+  lastMessage: ((.last_assistant_message // "") | tostring | .[0:2000]),
+  focused: $focused
+}' 2>/dev/null <<<"$payload") || exit 0
+
+# One line of JSON. printf is a bash builtin, so the event never shows up in any process's arguments.
+# shut-none + bidirectional mode: don't half-close after sending; the buddy disconnects once it has read the line (-t 2 as a fallback),
+# otherwise Quickshell logs a warning every time "the peer disconnected first".
+(
+  printf '%s\n' "$event" | socat -t 2 - "UNIX-CONNECT:$sock,shut-none"
+) </dev/null >/dev/null 2>&1 &
+disown
+exit 0

@@ -3,17 +3,17 @@ import Quickshell
 import "lib/shared.mjs" as Shared
 import "lib/work-status.mjs" as WS
 
-// 一只宠物。坐标语义与 dsh-pet 一致：(x, y) = 16:9 动画盒的左上角，盒宽 size；
-// 画面下移 bottomPad 让脚底贴住盒底，所以盒底 = 地面。
-// 动画链 / 移动 / 拖拽甩抛 / Q 弹全部复用 dsh-pet 的纯函数（lib/shared.mjs）。
+// One buddy. Coordinates mean the same as in dsh-pet: (x, y) = top-left of the 16:9 animation box, box width = size;
+// the picture is shifted down by bottomPad so the feet touch the box bottom, so box bottom = ground.
+// Animation chain / movement / drag and throw / squash bounce all reuse dsh-pet's pure functions (lib/shared.mjs).
 Item {
-  id: pet
+  id: buddy
 
   property var cfg
   property var service
   property var overlay
 
-  // Everything that comes from this pet's sprite pack: animations, timing, geometry (Service.makeRuntime)
+  // Everything that comes from this buddy's sprite pack: animations, timing, geometry (Service.makeRuntime)
   readonly property var rt: service.runtimes[cfg.id] || service.emptyRuntime
   readonly property var anims: rt.anims
   readonly property var weights: rt.weights
@@ -32,8 +32,8 @@ Item {
   width: size
   height: boxH
 
-  // ------------------------------------------------------------ 动画状态
-  property string facing: "left" // which way the pet faces on screen
+  // ------------------------------------------------------------ Animation state
+  property string facing: "left" // which way the buddy faces on screen
   // The pack says which way it was drawn; the sprite is mirrored when facing the other way
   readonly property bool mirrored: facing !== rt.facing
   property string anim: ""
@@ -42,14 +42,14 @@ Item {
   property int front: 0
   property bool endFired: false
   property bool dragging: false
-  // 短循环（像素动画）要重复几遍才算播完一次，见 repeatsFor()
+  // Short loops (pixel animations) repeat a few times before counting as played once; see repeatsFor()
   property int repeatLeft: 0
-  // 换源后 currentFrame 可能立刻跳到末帧，被误判为播完：这一圈至少要播了一半时长才算数
-  //（按时间而不是数帧：Qt 忙时会跳帧）
+  // After a source change currentFrame can jump straight to the last frame and look finished: a loop only counts once at least half its duration has played
+  // (by time rather than frame count: Qt skips frames when busy)
   property real cycleStart: 0
 
   function log(msg) {
-    console.log("[pixel-pet] " + Qt.formatTime(new Date(), "HH:mm:ss") + " pet=" + cfg.id + " " + msg)
+    console.log("[pixel-buddy] " + Qt.formatTime(new Date(), "HH:mm:ss") + " buddy=" + cfg.id + " " + msg)
   }
 
   function imgAt(i) {
@@ -65,7 +65,7 @@ Item {
     return cfg.workStatusEnabled !== false && ws && !WS.isTerminal(ws.state) ? ws : null
   }
 
-  // 播放 name；nextOnce = 播完一遍触发 handleEnded，否则无限循环
+  // Play name; nextOnce = call handleEnded after one play, otherwise loop forever
   // Why the current animation plays: "idle", "turn", "drag", "click", or "" (anything else).
   // One animation can fill several roles (idle doubling as drag), so the role, not the name,
   // decides how long it loops and what comes after it.
@@ -105,11 +105,11 @@ Item {
     if (pendingName === "" || String(b.source) !== String(urlFor(pendingName))) return
     pendingName = ""
     endFired = false
-    // 先结束上一次淡入：它的收尾会停掉 previous，而 previous 可能正是这次要播的 b
+    // Finish the previous fade first: its cleanup stops previous, and previous may be the very b being played now
     fade.complete()
     b.currentFrame = 0
     b.playing = true
-    // 交叉淡入：新画面在上层从 0 淡到 1，淡完再撤掉旧画面，切换时不露空白帧
+    // Crossfade: the new picture fades from 0 to 1 on top, then the old one is removed, so no blank frame shows during the switch
     b.z = 1
     f.z = 0
     b.opacity = 0
@@ -120,7 +120,7 @@ Item {
     onFrontShown()
   }
 
-  // 素材缺失 / 解码失败：放弃这次切换，回到待机，别让动画链卡死
+  // Missing / undecodable asset: give up this switch and go back to idle so the animation chain doesn't get stuck
   function backFailed() {
     if (pendingName === "") return
     log("load failed: " + pendingName)
@@ -131,10 +131,10 @@ Item {
     if (anims.idle.length && anims.idle.indexOf(failed) < 0) play(Shared.pick(anims.idle), true, "idle")
   }
 
-  // 像素动画一圈往往不到一秒：idle / 小动作 / 移动 / 事件动画重复整圈，直到至少 sprite.minPlaySec 秒。
-  // 转身、拖拽、点击回应默认只播一遍；sprite.playSec 可按动画名单独指定秒数（0 = 只播一遍）。
-  // 一圈的真实时长（秒）：优先用 pixel-pet-build 写进 manifest 的帧时长之和
-  //（Aseprite 导出时会把相同的相邻帧合并成一帧长帧，帧数 / fps 会算短）
+  // A pixel animation loop is often under a second: idle / small actions / moves / event animations repeat whole loops until at least sprite.minPlaySec seconds.
+  // Turns, drags and click reactions play once by default; sprite.playSec can set seconds per animation name (0 = play once).
+  // The real length of one loop (seconds): prefer the sum of frame durations pixel-buddy-build writes into the manifest
+  // (Aseprite merges identical neighbouring frames into one long frame on export, so frames / fps comes out too short)
   function cycleSec(name, frameCount) {
     var ms = Number(rt.durations[name])
     return ms > 0 ? ms / 1000 : frameCount / fps
@@ -201,20 +201,20 @@ Item {
     } else if (k === "turn") {
       play(Shared.pick(anims.turn, anim), true, "turn")
     } else if (k === "move" && !moveBusy() && tryMove("") !== false) {
-      // 已发起移动
+      // Move started
     } else {
       var act = Shared.pickCategoryAction(anims.categories, anims.idle, facing, anim)
       play(act.name, true, act.id === "FALLBACK" ? "idle" : "")
     }
   }
 
-  // 互动或事件动画结束后：工作状态还在进行中就回到对应档位循环
+  // After an interaction or event animation ends: if a work status is still active, go back to that level's loop
   function resumeWorkStatus() {
     var ws = wsActive()
     if (!ws) return false
     var pool = (anims.events || {}).workStatus || []
     var slot = pool[WS.stateIndex(ws.state)]
-    // Unmapped state: no animation, the pet carries on as usual
+    // Unmapped state: no animation, the buddy carries on as usual
     if (!slot || (Array.isArray(slot) && !slot.length)) return false
     play(Shared.pickSlot(slot, anim), Array.isArray(slot) && slot.length > 1)
     return true
@@ -230,12 +230,12 @@ Item {
         if (resumeWorkStatus()) return
       }
     }
-    // 移动动画播完就收尾位移：别让还没跑完的 moveDrive 挡住下一次挑选
+    // Finish the movement when the move animation ends, so an unfinished moveDrive doesn't block the next pick
     if (moveDrive && moveDrive.name === anim) finishMove()
     var events = anims.events || {}
     var isEvent = Shared.isEventAnim(events, anim)
     if (isEvent && wsActive()) {
-      // 多候选档位：播完一段换下一段，长时间状态不单段重复
+      // Levels with several candidates: switch to the next one after each plays, so long states don't repeat one clip
       var nextWork = Shared.nextWorkStatusAnim(events.workStatus || [], anim)
       if (nextWork !== null) {
         play(nextWork, true)
@@ -258,7 +258,7 @@ Item {
     pickNext()
   }
 
-  // ------------------------------------------------------------ 移动
+  // ------------------------------------------------------------ Movement
   property var pendingMove: null
   property var moveDrive: null
 
@@ -282,7 +282,7 @@ Item {
     }
     if (!chosen) return false
     var mp = Object.assign({}, moves["default"], chosen.params || {})
-    var distScale = size / Shared.PET_REF_WIDTH
+    var distScale = size / Shared.BUDDY_REF_WIDTH
     function planFor(d) {
       return Shared.planMove({
         cx: x + size / 2,
@@ -297,9 +297,9 @@ Item {
         sideAllow: sideAllow
       })
     }
-    // 只看 facing：转身播完时 handleEnded 已经翻过 facing，再按"正在转身"反一次方向就会倒着走
+    // Look only at facing: when a turn finishes handleEnded has already flipped facing, and flipping again for "turning" would walk backwards
     var dir = facing === "right" ? 1 : -1
-    // Without a turn animation the pet could never change direction and would get stuck at a
+    // Without a turn animation the buddy could never change direction and would get stuck at a
     // screen edge: pick a direction per walk (the other one if blocked) and just flip the sprite.
     var noTurn = !anims.turn.length
     if (noTurn && Math.random() < 0.5) dir = -dir
@@ -324,7 +324,7 @@ Item {
     var cycle = f.frameCount > 1 ? cycleSec(pm.name, f.frameCount) : 10
     var duration
     if (pm.speed > 0 && f.frameCount > 1) {
-      // speed（画布像素 / 秒）→ 走完这段要多久；走路循环播整圈数，正好覆盖整段路程
+      // speed (canvas pixels / second) → how long this stretch takes; the walk loop plays whole loops that cover the full distance
       var pxPerSec = pm.speed * size / rt.canvasW
       var moveSec = pm.totalRatio * areaW / pxPerSec
       var cycles = Math.max(1, Math.round((moveSec + pm.leadSec + pm.tailSec) / cycle))
@@ -336,7 +336,7 @@ Item {
     moveDrive = Object.assign({}, pm, { t0: Date.now(), duration: duration, travel: Math.max(0.1, duration - pm.leadSec - pm.tailSec) })
   }
 
-  // 直接走到终点并结束位移
+  // Jump straight to the destination and end the movement
   function finishMove() {
     var m = moveDrive
     if (!m) return
@@ -351,23 +351,23 @@ Item {
   }
 
   FrameAnimation {
-    running: pet.moveDrive !== null
+    running: buddy.moveDrive !== null
     onTriggered: {
-      var m = pet.moveDrive
+      var m = buddy.moveDrive
       if (!m) return
       var t = (Date.now() - m.t0) / 1000
       var ratioX
       if (t <= m.leadSec) ratioX = m.startRatio
       else if (t >= m.duration - m.tailSec) ratioX = m.targetRatio
       else ratioX = m.startRatio + m.dir * m.totalRatio * ((t - m.leadSec) / m.travel)
-      // 取整：像素画在小数坐标上最近邻采样会闪
-      pet.x = Math.round(ratioX * pet.areaW - pet.size / 2)
-      pet.y = Math.round(m.startYRatio * pet.areaH - pet.boxH / 2)
-      if (t >= m.duration - m.tailSec) pet.moveDrive = null
+      // Round: nearest-neighbour sampling of pixel art at fractional coordinates flickers
+      buddy.x = Math.round(ratioX * buddy.areaW - buddy.size / 2)
+      buddy.y = Math.round(m.startYRatio * buddy.areaH - buddy.boxH / 2)
+      if (t >= m.duration - m.tailSec) buddy.moveDrive = null
     }
   }
 
-  // ------------------------------------------------------------ 拖拽 / 甩抛
+  // ------------------------------------------------------------ Drag / throw
   property var dragState: null // { sx, sy, offX, offY }
   property var dragTarget: null
   property var dragVel: ({ vx: 0, vy: 0 })
@@ -393,38 +393,38 @@ Item {
   }
 
   FrameAnimation {
-    running: pet.dragTarget !== null
+    running: buddy.dragTarget !== null
     onTriggered: {
-      var target = pet.dragTarget
+      var target = buddy.dragTarget
       if (!target) return
       var dt = Math.min(frameTime, 1 / 30)
-      var v = pet.dragVel
-      v.vx = Shared.springStep(v.vx, pet.x, target.x, dt, pet.physics.throwPower)
-      v.vy = Shared.springStep(v.vy, pet.y, target.y, dt, pet.physics.throwPower)
-      pet.x += v.vx * dt
-      pet.y += v.vy * dt
+      var v = buddy.dragVel
+      v.vx = Shared.springStep(v.vx, buddy.x, target.x, dt, buddy.physics.throwPower)
+      v.vy = Shared.springStep(v.vy, buddy.y, target.y, dt, buddy.physics.throwPower)
+      buddy.x += v.vx * dt
+      buddy.y += v.vy * dt
     }
   }
 
   FrameAnimation {
     id: throwAnim
-    running: pet.throwState !== null
+    running: buddy.throwState !== null
     onTriggered: {
-      var s = pet.throwState
+      var s = buddy.throwState
       if (!s) return
       var fallingVy = s.vy
-      var res = Shared.throwStepRegion(s, frameTime, pet.throwSpaceObj, pet.physics, 0)
-      pet.x = res.x
-      pet.y = res.y
-      var grounded = res.y >= pet.areaH - pet.boxH - 1
-      if (res.bounced && grounded && !pet.prevGrounded) pet.startSquash(Shared.landingSquash(fallingVy))
-      pet.prevGrounded = grounded
-      if (res.atRest) pet.throwState = null
-      else pet.throwState = { x: res.x, y: res.y, vx: res.vx, vy: res.vy }
+      var res = Shared.throwStepRegion(s, frameTime, buddy.throwSpaceObj, buddy.physics, 0)
+      buddy.x = res.x
+      buddy.y = res.y
+      var grounded = res.y >= buddy.areaH - buddy.boxH - 1
+      if (res.bounced && grounded && !buddy.prevGrounded) buddy.startSquash(Shared.landingSquash(fallingVy))
+      buddy.prevGrounded = grounded
+      if (res.atRest) buddy.throwState = null
+      else buddy.throwState = { x: res.x, y: res.y, vx: res.vx, vy: res.vy }
     }
   }
 
-  // ------------------------------------------------------------ Q 弹
+  // ------------------------------------------------------------ Squash bounce
   property real squashU: 1
   property real squashDepth: Shared.SQ_SQUASH
   property bool pendingSquash: false
@@ -437,31 +437,31 @@ Item {
 
   NumberAnimation {
     id: squashAnim
-    target: pet
+    target: buddy
     property: "squashU"
     from: 0
     to: 1
     duration: Shared.SQ_DURATION_MS
   }
 
-  // ------------------------------------------------------------ 画面
+  // ------------------------------------------------------------ Picture
   Item {
     id: stage
-    width: pet.size
-    height: pet.boxH
+    width: buddy.size
+    height: buddy.boxH
     // Sprites drawn off-center are shifted so the body (hitbox) sits in the middle of the box,
     // where walking, mirroring and the bubble expect it
-    x: pet.rt.offsetX * pet.size
-    y: pet.dragging ? 0 : pet.bottomPad
+    x: buddy.rt.offsetX * buddy.size
+    y: buddy.dragging ? 0 : buddy.bottomPad
     transform: [
       Scale {
-        origin.x: (0.5 - pet.rt.offsetX) * pet.size
-        xScale: pet.mirrored ? -1 : 1
+        origin.x: (0.5 - buddy.rt.offsetX) * buddy.size
+        xScale: buddy.mirrored ? -1 : 1
       },
       Scale {
-        origin.x: (0.5 - pet.rt.offsetX) * pet.size
-        origin.y: pet.boxH
-        yScale: pet.squashY
+        origin.x: (0.5 - buddy.rt.offsetX) * buddy.size
+        origin.y: buddy.boxH
+        yScale: buddy.squashY
       }
     ]
 
@@ -474,11 +474,11 @@ Item {
       playing: false
       opacity: 0
       onStatusChanged: {
-        if (pet.front !== 1) return
-        if (status === AnimatedImage.Ready) pet.backReady()
-        else if (status === AnimatedImage.Error) pet.backFailed()
+        if (buddy.front !== 1) return
+        if (status === AnimatedImage.Ready) buddy.backReady()
+        else if (status === AnimatedImage.Error) buddy.backFailed()
       }
-      onCurrentFrameChanged: pet.frameTick(imgA)
+      onCurrentFrameChanged: buddy.frameTick(imgA)
     }
 
     AnimatedImage {
@@ -490,11 +490,11 @@ Item {
       playing: false
       opacity: 0
       onStatusChanged: {
-        if (pet.front !== 0) return
-        if (status === AnimatedImage.Ready) pet.backReady()
-        else if (status === AnimatedImage.Error) pet.backFailed()
+        if (buddy.front !== 0) return
+        if (status === AnimatedImage.Ready) buddy.backReady()
+        else if (status === AnimatedImage.Error) buddy.backFailed()
       }
-      onCurrentFrameChanged: pet.frameTick(imgB)
+      onCurrentFrameChanged: buddy.frameTick(imgB)
     }
   }
 
@@ -506,7 +506,7 @@ Item {
     to: 1
     duration: 120
     onFinished: if (previous) {
-      if (previous !== pet.imgAt(pet.front)) {
+      if (previous !== buddy.imgAt(buddy.front)) {
         previous.opacity = 0
         previous.playing = false
       }
@@ -514,122 +514,122 @@ Item {
     }
   }
 
-  // ------------------------------------------------------------ 输入
+  // ------------------------------------------------------------ Input
   readonly property real hitX: (mirrored ? 1 - hitBox.x1 : hitBox.x0) * size
   readonly property real hitY: (dragging ? 0 : bottomPad) + hitBox.y0 * boxH
   readonly property real hitW: (hitBox.x1 - hitBox.x0) * size
   readonly property real hitH: (hitBox.y1 - hitBox.y0) * boxH
 
-  // overlay 的输入区域（坐标系 = overlay）
+  // The overlay's input region (coordinates = overlay)
   readonly property Region hitRegion: Region {
-    x: pet.x + pet.hitX
-    y: pet.y + pet.hitY
-    width: pet.hitW
-    height: pet.hitH
+    x: buddy.x + buddy.hitX
+    y: buddy.y + buddy.hitY
+    width: buddy.hitW
+    height: buddy.hitH
   }
 
-  // While the geometry editor is open for this pet's pack, draw what it edits on the pet itself:
+  // While the geometry editor is open for this buddy's pack, draw what it edits on the buddy itself:
   // the hitbox (click / drag area, bubble anchor) and the feet line (sits on the ground).
   readonly property bool editingGeometry: service.geometryPackId !== "" && service.geometryPackId === rt.packId
   // Back to the home corner, out from under the editor window, and hold still there
   onEditingGeometryChanged: if (editingGeometry && placed && !dragging) goHome()
 
   Rectangle {
-    visible: pet.editingGeometry
-    x: pet.hitX
-    y: pet.hitY
-    width: pet.hitW
-    height: pet.hitH
+    visible: buddy.editingGeometry
+    x: buddy.hitX
+    y: buddy.hitY
+    width: buddy.hitW
+    height: buddy.hitH
     color: "transparent"
     border.color: "#e0a050"
     border.width: 2
   }
 
   Rectangle {
-    visible: pet.editingGeometry && !pet.dragging
-    y: pet.boxH - 1
-    width: pet.size
+    visible: buddy.editingGeometry && !buddy.dragging
+    y: buddy.boxH - 1
+    width: buddy.size
     height: 2
     color: "#9ece6a"
   }
 
   MouseArea {
     id: hit
-    x: pet.hitX
-    y: pet.hitY
-    width: pet.hitW
-    height: pet.hitH
+    x: buddy.hitX
+    y: buddy.hitY
+    width: buddy.hitW
+    height: buddy.hitH
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     preventStealing: true
     hoverEnabled: true
-    cursorShape: pet.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+    cursorShape: buddy.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
 
     function overlayPoint(mouse) {
-      return hit.mapToItem(pet.parent, mouse.x, mouse.y)
+      return hit.mapToItem(buddy.parent, mouse.x, mouse.y)
     }
 
     onPressed: function(mouse) {
       if (mouse.button === Qt.RightButton) {
         var p = overlayPoint(mouse)
-        pet.overlay.openMenu(pet, p.x, p.y)
+        buddy.overlay.openMenu(buddy, p.x, p.y)
         return
       }
       var q = overlayPoint(mouse)
-      pet.stopThrow()
-      pet.stopMove()
-      pet.trail = []
-      pet.dragState = {
+      buddy.stopThrow()
+      buddy.stopMove()
+      buddy.trail = []
+      buddy.dragState = {
         sx: q.x,
         sy: q.y,
-        offX: q.x - (pet.x + pet.size / 2),
-        offY: q.y - (pet.y + pet.boxH / 2)
+        offX: q.x - (buddy.x + buddy.size / 2),
+        offY: q.y - (buddy.y + buddy.boxH / 2)
       }
     }
 
     onPositionChanged: function(mouse) {
-      var d = pet.dragState
+      var d = buddy.dragState
       if (!d || !(mouse.buttons & Qt.LeftButton)) return
       var p = overlayPoint(mouse)
-      if (!pet.dragging) {
+      if (!buddy.dragging) {
         if (Math.hypot(p.x - d.sx, p.y - d.sy) < Shared.DRAG_THRESHOLD) return
-        pet.dragging = true
-        pet.resumeAfterPreview = false
-        pet.dragVel = { vx: 0, vy: 0 }
-        if (pet.anims.drag.length) pet.play(Shared.pick(pet.anims.drag), true, "drag")
+        buddy.dragging = true
+        buddy.resumeAfterPreview = false
+        buddy.dragVel = { vx: 0, vy: 0 }
+        if (buddy.anims.drag.length) buddy.play(Shared.pick(buddy.anims.drag), true, "drag")
       }
       var now = Date.now()
-      pet.trail = Shared.trimTrail(pet.trail.concat([{ t: now, x: p.x, y: p.y }]), now)
-      pet.dragTarget = { x: p.x - d.offX - pet.size / 2, y: p.y - d.offY - pet.boxH / 2 }
+      buddy.trail = Shared.trimTrail(buddy.trail.concat([{ t: now, x: p.x, y: p.y }]), now)
+      buddy.dragTarget = { x: p.x - d.offX - buddy.size / 2, y: p.y - d.offY - buddy.boxH / 2 }
     }
 
     onReleased: function(mouse) {
       if (mouse.button !== Qt.LeftButton) return
-      var wasDragging = pet.dragging
-      pet.dragState = null
-      pet.dragTarget = null
+      var wasDragging = buddy.dragging
+      buddy.dragState = null
+      buddy.dragTarget = null
       if (wasDragging) {
-        pet.dragging = false
-        if (!pet.resumeWorkStatus()) pet.playIdle()
-        var vel = Shared.estimateReleaseVelocity(pet.trail, Date.now(), pet.physics)
-        pet.trail = []
-        if (vel) pet.startThrow(vel.vx, vel.vy)
-        else pet.startThrow(0, 0) // 原地松手也让它落回地面
+        buddy.dragging = false
+        if (!buddy.resumeWorkStatus()) buddy.playIdle()
+        var vel = Shared.estimateReleaseVelocity(buddy.trail, Date.now(), buddy.physics)
+        buddy.trail = []
+        if (vel) buddy.startThrow(vel.vx, vel.vy)
+        else buddy.startThrow(0, 0) // Letting go in place also drops it back to the ground
         return
       }
-      // 点击：clickAction = "usage" 查看用量（Q 弹 + 用量动画与气泡）；默认 "react" 播点击回应动画 + Q 弹
-      if (pet.service.config.clickAction === "usage") {
-        pet.startSquash(Shared.SQ_SQUASH)
-        pet.service.showUsage(true)
+      // Click: clickAction = "usage" shows usage (squash bounce + usage animation and bubble); the default "react" plays a click reaction + squash bounce
+      if (buddy.service.config.clickAction === "usage") {
+        buddy.startSquash(Shared.SQ_SQUASH)
+        buddy.service.showUsage(true)
         return
       }
-      if (pet.anims.clicks.length) {
-        pet.pendingSquash = true
-        pet.play(Shared.pick(pet.anims.clicks), true, "click")
+      if (buddy.anims.clicks.length) {
+        buddy.pendingSquash = true
+        buddy.play(Shared.pick(buddy.anims.clicks), true, "click")
       }
     }
   }
 
-  // ------------------------------------------------------------ 菜单动作（PetMenu 调用）
+  // ------------------------------------------------------------ Menu actions (called by BuddyMenu)
   function menuAction(leaf) {
     if (leaf.action === "whisper") {
       var r = service.requestWhisper(cfg.id)
@@ -638,7 +638,7 @@ Item {
       return
     }
     if (leaf.action === "chat") {
-      overlay.openChat(pet)
+      overlay.openChat(buddy)
       return
     }
     if (leaf.action === "usage") {
@@ -689,8 +689,8 @@ Item {
     log("home " + Math.round(x) + "," + Math.round(y) + " in " + areaW + "x" + areaH)
   }
 
-  // ------------------------------------------------------------ 气泡
-  // 工作状态气泡常驻（直到状态变化）；碎碎念 / 用量等临时气泡盖在上面，到时后露出工作状态气泡
+  // ------------------------------------------------------------ Bubble
+  // The work status bubble stays (until the status changes); temporary bubbles like murmurs / usage cover it, and it shows again when they time out
   property var wsBubble: null
   property var tempBubble: null
 
@@ -703,81 +703,81 @@ Item {
 
   Timer {
     id: bubbleTimer
-    onTriggered: pet.tempBubble = null
+    onTriggered: buddy.tempBubble = null
   }
 
   Timer {
     id: wsBubbleTimer
     interval: 8000
-    onTriggered: pet.wsBubble = null
+    onTriggered: buddy.wsBubble = null
   }
 
   readonly property var bubbleContent: editingGeometry ? { text: service.tr("geometryBubble"), meme: "" } : (tempBubble || wsBubble)
 
   Bubble {
     id: bubble
-    content: pet.bubbleContent
+    content: buddy.bubbleContent
     memeDir: Qt.resolvedUrl("assets/memes/")
-    readonly property var fontCfg: pet.service.config.bubbleFont || ({})
-    // 没指定字体时：中文用 Noto Sans CJK SC，英文用 Noto Sans；没装则由 fontconfig 回退到其他字体
-    fontFamily: fontCfg.family || (fontCfg.file ? "" : pet.service.lang === "en" ? "Noto Sans" : "Noto Sans CJK SC")
-    fontFile: fontCfg.file ? String(fontCfg.file).replace(/^~(?=\/)/, pet.service.home) : ""
+    readonly property var fontCfg: buddy.service.config.bubbleFont || ({})
+    // With no font set, use Noto Sans; if it isn't installed, fontconfig falls back to another font
+    fontFamily: fontCfg.family || (fontCfg.file ? "" : "Noto Sans")
+    fontFile: fontCfg.file ? String(fontCfg.file).replace(/^~(?=\/)/, buddy.service.home) : ""
     fontSize: Number(fontCfg.size) > 0 ? Number(fontCfg.size) : 14
-    // 头顶居中，夹在屏幕内
-    readonly property real headY: pet.bottomPad + pet.hitBox.y0 * pet.boxH
-    x: Math.max(-pet.x + 4, Math.min(pet.size / 2 - width / 2, pet.areaW - pet.x - width - 4))
-    y: Math.max(-pet.y + 4, headY - height + 6)
-    tailX: pet.size / 2 - x
+    // Centred above the head, kept on screen
+    readonly property real headY: buddy.bottomPad + buddy.hitBox.y0 * buddy.boxH
+    x: Math.max(-buddy.x + 4, Math.min(buddy.size / 2 - width / 2, buddy.areaW - buddy.x - width - 4))
+    y: Math.max(-buddy.y + 4, headY - height + 6)
+    tailX: buddy.size / 2 - x
   }
 
-  // ------------------------------------------------------------ 外部事件
+  // ------------------------------------------------------------ External events
   Connections {
-    target: pet.service
+    target: buddy.service
 
     function onWorkStatusChanged() {
-      pet.applyWorkStatus()
+      buddy.applyWorkStatus()
     }
 
-    // 改配置（如 workStatusDetail）后立即按新设置重算气泡；档位没变，不会重播动画
+    // After a config change (e.g. workStatusDetail), recompute the bubble with the new settings right away; the level hasn't changed, so the animation doesn't replay
     function onConfigChanged() {
-      pet.applyWorkStatus()
+      buddy.applyWorkStatus()
     }
 
-    function onSpeak(petId, text, meme, kind) {
-      if (petId !== "" && petId !== pet.cfg.id) return
+    function onSpeak(buddyId, text, meme, kind) {
+      if (buddyId !== "" && buddyId !== buddy.cfg.id) return
       if (kind === "whisper" || kind === "chat") {
-        var pool = (pet.anims.events || {}).whisper || []
-        if (pool.length && !pet.dragging) pet.play(Shared.pickSlot(pool[Math.floor(Math.random() * pool.length)], pet.anim), true)
-        pet.showBubble(text, meme, 12000)
+        var pool = (buddy.anims.events || {}).whisper || []
+        if (pool.length && !buddy.dragging) buddy.play(Shared.pickSlot(pool[Math.floor(Math.random() * pool.length)], buddy.anim), true)
+        buddy.showBubble(text, meme, 12000)
       } else {
-        pet.showBubble(text, "", kind === "error" ? 10000 : 8000)
+        buddy.showBubble(text, "", kind === "error" ? 10000 : 8000)
       }
     }
 
-    function onPlayRequest(petId, name) {
-      if (petId !== "" && petId !== pet.cfg.id) return
-      pet.playByName(name)
+    function onPlayRequest(buddyId, name) {
+      if (buddyId !== "" && buddyId !== buddy.cfg.id) return
+      buddy.playByName(name)
     }
 
     function onUsageShow(summary) {
-      if (pet.cfg.balanceEnabled === false) return
-      var pool = (pet.anims.events || {}).balance || []
+      if (buddy.cfg.balanceEnabled === false) return
+      var pool = (buddy.anims.events || {}).balance || []
       var slot = pool[summary.tier]
-      if (slot && !pet.dragging && !pet.wsActive()) pet.play(Shared.pickSlot(slot, pet.anim), true)
-      pet.showBubble(summary.text, "", 10000)
+      if (slot && !buddy.dragging && !buddy.wsActive()) buddy.play(Shared.pickSlot(slot, buddy.anim), true)
+      buddy.showBubble(summary.text, "", 10000)
     }
   }
 
-  // 当前展示的会话 + 档位；只有它变化才切动画，工具 / 命令 / 总结变化只刷新气泡
+  // The session + level currently shown; only a change here switches animations, while tool / command / summary changes only refresh the bubble
   property string wsSig: ""
   property string wsLine: ""
-  property string wsLang: ""
+  property var wsTexts: null
 
   function applyWorkStatus() {
     if (cfg.workStatusEnabled === false) return
     var ws = service.workStatus
     if (!ws) {
-      // 没有活跃会话：正在循环的状态动画播完这一遍就回随机链
+      // No active session: the looping status animation finishes this play, then goes back to the random chain
       once = true
       wsBubble = null
       wsSig = ""
@@ -788,18 +788,18 @@ Item {
     var sig = ws.key + "|" + ws.state
     var changed = sig !== wsSig
     wsSig = sig
-    if (changed || wsLang !== service.lang) {
-      wsLang = service.lang
+    if (changed || wsTexts !== service.config.workStatusTexts) {
+      wsTexts = service.config.workStatusTexts
       var texts = service.config.workStatusTexts || []
       wsLine = texts[idx] && texts[idx].length ? texts[idx][Math.floor(Math.random() * texts[idx].length)] : ""
     }
 
-    // 气泡：agent · 项目 / 步骤总结（开启且已有）或档位文案 / 工具 · 命令摘要（workStatusDetail 开启时）
+    // Bubble: agent · project / step summary (when enabled and available) or level text / tool · command summary (when workStatusDetail is on)
     var showDetail = service.config.workStatusDetail === true
     var mode = service.summaryMode()
     var project = WS.projectName(ws.cwd)
     var lines = [(ws.agent === "codex" ? "Codex" : "Claude") + (project ? " · " + project : "")]
-    // model 模式的总结只描述进行中的步骤；transcript 模式结束时显示 agent 的最后一句回复
+    // Summaries in model mode describe only the step in progress; transcript mode shows the agent's last reply when it finishes
     var showSummary = ws.summary && (mode === "transcript" || (mode === "model" && !terminal))
     var main = showSummary ? ws.summary : wsLine
     if (!showDetail && ws.state === "waiting" && ws.tool) main += service.tr("toolSuffix", { tool: ws.tool })
@@ -825,7 +825,7 @@ Item {
   property string shownKey: ""
 
   // Shows the animations a save changed (or idle, after switching packs) once, then goes back
-  // to what the pet was doing, so an edit is visible right away even while an agent is working.
+  // to what the buddy was doing, so an edit is visible right away even while an agent is working.
   property bool resumeAfterPreview: false
 
   onRtKeyChanged: {
@@ -851,7 +851,7 @@ Item {
       showBubble(service.tr("packUpdated", { names: changed.slice(0, 3).join(", ") + (changed.length > 3 ? " …" : "") }), "", 3500)
   }
 
-  // 窗口刚创建时宽高还是 0，按 0 算角落会落到屏幕外：等拿到真实尺寸再摆放
+  // Right after the window is created its size is still 0, and placing corners at 0 puts them off screen: wait for the real size before placing
   property bool placed: false
 
   function ensurePlaced() {
@@ -868,9 +868,9 @@ Item {
   onAreaWChanged: ensurePlaced()
   onAreaHChanged: ensurePlaced()
 
-  // The position is the box's top-left corner, so a new size (pack scale, pet size, another
-  // pack) would grow the pet down and right, off the screen. Keep the feet where they were
-  // and grow around them, then pull the pet back inside the screen.
+  // The position is the box's top-left corner, so a new size (pack scale, buddy size, another
+  // pack) would grow the buddy down and right, off the screen. Keep the feet where they were
+  // and grow around them, then pull the buddy back inside the screen.
   property real placedSize: 0
 
   onSizeChanged: {
@@ -883,13 +883,13 @@ Item {
     var bottom = y + old * 9 / 16
     // boxH and the hitbox follow `size` through bindings that may not have updated yet
     Qt.callLater(function() {
-      pet.x = Math.round(cx - pet.size / 2)
-      pet.y = Math.round(bottom - pet.boxH)
-      pet.clampHome()
+      buddy.x = Math.round(cx - buddy.size / 2)
+      buddy.y = Math.round(bottom - buddy.boxH)
+      buddy.clampHome()
     })
   }
 
-  // A new hitbox changes how far the pet may hang off the sides
+  // A new hitbox changes how far the buddy may hang off the sides
   onHitBoxChanged: if (placed && !dragging && !throwState && !moveDrive) clampHome()
 
   Component.onCompleted: {

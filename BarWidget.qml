@@ -6,17 +6,17 @@ import qs.Commons
 import qs.Ui
 import "lib/packs.mjs" as Packs
 
-// Bar icon + popup for sprite packs: browse packs, pick one per pet, create one from the
+// Bar icon + popup for sprite packs: browse packs, pick one per buddy, create one from the
 // Aseprite template, and edit a pack's role mapping, behavior, geometry and info.
-// All state lives in the pixel-pet service (Service.qml); this file is only the UI.
+// All state lives in the pixel-buddy service (Service.qml); this file is only the UI.
 //
-// Bar icon: first frame of the active pet's idle animation. Left click opens the popup,
-// right click hides / shows the pets. IPC: omarchy-shell pixel-pet-studio toggle
+// Bar icon: first frame of the active buddy's idle animation. Left click opens the popup,
+// right click hides / shows the buddies. IPC: omarchy-shell pixel-buddy-studio toggle
 Panel {
   id: root
 
-  moduleName: "nobi.pixel-pet"
-  ipcTarget: "pixel-pet-studio"
+  moduleName: "nobi.pixel-buddy"
+  ipcTarget: "pixel-buddy-studio"
   manageIpc: false
 
   // The service is created by the shell next to this widget; look it up until it exists.
@@ -24,7 +24,7 @@ Panel {
   function findService() {
     if (service) return
     var sh = bar ? bar.shell : null
-    var s = sh && typeof sh.serviceFor === "function" ? sh.serviceFor("nobi.pixel-pet") : null
+    var s = sh && typeof sh.serviceFor === "function" ? sh.serviceFor("nobi.pixel-buddy") : null
     if (s) service = s
   }
   Timer {
@@ -43,7 +43,7 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   // ---------------------------------------------------------------- state
-  property string petChoice: ""
+  property string buddyChoice: ""
   property string browsePack: ""
   property string mode: "home" // home | edit
   property string tab: "roles"
@@ -70,15 +70,15 @@ Panel {
     })
   }
 
-  readonly property var pets: service ? (service.config.pets || []) : []
-  readonly property string petId: petChoice && pets.some(function(p) { return p.id === petChoice }) ? petChoice : (pets.length ? pets[0].id : "")
-  readonly property var pet: pets.filter(function(p) { return p.id === root.petId })[0] || null
-  readonly property string petName: pet ? (pet.name || pet.id) : ""
-  readonly property string petPack: service && petId ? service.petPackId(petId) : ""
-  readonly property string packId: service && browsePack && service.packIndex[browsePack] ? browsePack : petPack
+  readonly property var buddies: service ? (service.config.buddies || []) : []
+  readonly property string buddyId: buddyChoice && buddies.some(function(p) { return p.id === buddyChoice }) ? buddyChoice : (buddies.length ? buddies[0].id : "")
+  readonly property var buddy: buddies.filter(function(p) { return p.id === root.buddyId })[0] || null
+  readonly property string buddyName: buddy ? (buddy.name || buddy.id) : ""
+  readonly property string buddyPack: service && buddyId ? service.buddyPackId(buddyId) : ""
+  readonly property string packId: service && browsePack && service.packIndex[browsePack] ? browsePack : buddyPack
   readonly property var view: service && packId ? service.packView(packId) : null
-  readonly property var iconView: service && petPack ? service.packView(petPack) : null
-  readonly property bool inUse: packId !== "" && packId === petPack
+  readonly property var iconView: service && buddyPack ? service.packView(buddyPack) : null
+  readonly property bool inUse: packId !== "" && packId === buddyPack
   readonly property bool busy: service ? service.busyPack !== "" && service.busyPack === packId : false
 
   // Roles that have something to show, for the ‹ › cycling in the preview
@@ -112,7 +112,7 @@ Panel {
   }
 
   function usePack() {
-    if (service && packId) service.setPetPack(petId, packId)
+    if (service && packId) service.setBuddyPack(buddyId, packId)
   }
 
   function formatsOf(entry) {
@@ -153,7 +153,7 @@ Panel {
     flick.contentY = 0
   }
 
-  // omarchy-shell pixel-pet-studio toggle | open | close | edit [roles|behavior|geometry|info]
+  // omarchy-shell pixel-buddy-studio toggle | open | close | edit [roles|behavior|geometry|info]
   IpcHandler {
     target: root.ipcTarget
     function open(): void { root.open() }
@@ -186,8 +186,8 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: "󰩃"
-    tooltipText: root.service ? "Pixel Pet · " + (root.iconView ? root.iconView.entry.name : "no pack")
-      + (root.service.hidden ? " (hidden)" : "") + "\nRight-click to " + (root.service.hidden ? "show" : "hide") + " the pet" : "Pixel Pet"
+    tooltipText: root.service ? "Pixel Buddy · " + (root.iconView ? root.iconView.entry.name : "no pack")
+      + (root.service.hidden ? " (hidden)" : "") + "\nRight-click to " + (root.service.hidden ? "show" : "hide") + " the buddy" : "Pixel Buddy"
     iconComponent: root.iconView ? iconComp : null
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton && root.service) root.service.hidden = !root.service.hidden
@@ -199,7 +199,7 @@ Panel {
     id: iconComp
     SpriteCrop {
       service: root.service
-      packId: root.petPack
+      packId: root.buddyPack
       anim: root.iconView ? root.iconView.idleName : ""
       crop: true
       opacity: root.service && root.service.hidden ? 0.45 : 1
@@ -252,7 +252,7 @@ Panel {
           Text {
             visible: !root.service
             width: parent.width
-            text: "The pet service isn't running. Check that nobi.pixel-pet is enabled in shell.json."
+            text: "The buddy service isn't running. Check that nobi.pixel-buddy is enabled in shell.json."
             color: root.dim
             wrapMode: Text.WordWrap
             font.family: root.fontFamily
@@ -263,7 +263,7 @@ Panel {
           Item {
             visible: !!root.service
             width: parent.width
-            height: Math.max(titleText.implicitHeight, petPicker.height, backBtn.height)
+            height: Math.max(titleText.implicitHeight, buddyPicker.height, backBtn.height)
 
             Button {
               id: backBtn
@@ -280,9 +280,9 @@ Panel {
               id: titleText
               anchors.left: root.mode === "edit" ? backBtn.right : parent.left
               anchors.leftMargin: root.mode === "edit" ? Style.spacing.lg : 0
-              anchors.right: petPicker.left
+              anchors.right: buddyPicker.left
               anchors.verticalCenter: parent.verticalCenter
-              text: root.mode === "edit" && root.view ? root.view.entry.name : "Pixel Pet"
+              text: root.mode === "edit" && root.view ? root.view.entry.name : "Pixel Buddy"
               elide: Text.ElideRight
               color: root.fg
               font.family: root.fontFamily
@@ -291,18 +291,18 @@ Panel {
             }
 
             Dropdown {
-              id: petPicker
-              visible: root.pets.length > 1 && root.mode === "home"
+              id: buddyPicker
+              visible: root.buddies.length > 1 && root.mode === "home"
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
               width: Style.space(140)
               showLabel: false
-              options: root.pets.map(function(p) { return { value: p.id, label: "pet: " + (p.name || p.id) } })
-              value: root.petId
+              options: root.buddies.map(function(p) { return { value: p.id, label: "buddy: " + (p.name || p.id) } })
+              value: root.buddyId
               onChanged: function(v) {
-                root.petChoice = v
+                root.buddyChoice = v
                 root.browsePack = ""
-                value = Qt.binding(function() { return root.petId })
+                value = Qt.binding(function() { return root.buddyId })
               }
             }
 
@@ -406,7 +406,7 @@ Panel {
                 visible: !root.inUse
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                text: "Use for " + root.petName
+                text: "Use for " + root.buddyName
                 bordered: true
                 selected: true
                 onClicked: root.usePack()
@@ -515,7 +515,7 @@ Panel {
                       font.pixelSize: Style.font.caption
                     }
                     Rectangle {
-                      visible: root.service.petPackId(root.petId) === thumb.modelData.id
+                      visible: root.service.buddyPackId(root.buddyId) === thumb.modelData.id
                       anchors.right: parent.right
                       anchors.top: parent.top
                       anchors.margins: Style.spacing.sm
@@ -568,7 +568,7 @@ Panel {
               TextField {
                 id: newName
                 width: parent.width - createBtn.width - cancelBtn.width - parent.spacing * 2
-                placeholderText: "Name of the new pet"
+                placeholderText: "Name of the new buddy"
                 onAccepted: createBtn.clicked()
                 Keys.onEscapePressed: root.creating = false
               }
@@ -581,9 +581,9 @@ Panel {
                   var name = newName.text.trim()
                   if (!name) return
                   root.creating = false
-                  // A new pack goes straight onto the pet, so saves in Aseprite show up there
+                  // A new pack goes straight onto the buddy, so saves in Aseprite show up there
                   root.service.newPack(name, function(id) {
-                    root.service.setPetPack(root.petId, id, true)
+                    root.service.setBuddyPack(root.buddyId, id, true)
                     root.showPack(id)
                   })
                 }
@@ -594,7 +594,7 @@ Panel {
               visible: root.creating
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Opens a blank 128×72 canvas in Aseprite with an idle tag, and puts it on the pet. Draw, save, and the pet updates. Add a tag per animation; the Roles tab maps them."
+              text: "Opens a blank 128×72 canvas in Aseprite with an idle tag, and puts it on the buddy. Draw, save, and the buddy updates. Add a tag per animation; the Roles tab maps them."
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -884,7 +884,7 @@ Panel {
                         id: playField
                         fieldWidth: Style.space(96)
                         from: 0; to: 120
-                        // Turn, drag and click reactions play once unless told otherwise (Pet.repeatsFor)
+                        // Turn, drag and click reactions play once unless told otherwise (Buddy.repeatsFor)
                         readonly property bool once: root.view ? ["turn", "drag", "clicks"].some(function(k) { return root.view.resolved.roles[k].indexOf(animRow.modelData) >= 0 }) : false
                         value: animRow.hasPlay ? Number(animRow.playSec[animRow.modelData]) || 0 : (once ? 0 : minPlay.value)
                         onModified: function(v) { root.setBehavior("playSec", animRow.modelData, v) }
@@ -959,7 +959,7 @@ Panel {
                   }
                   Text {
                     readonly property var g: root.view ? root.view.geometry : null
-                    text: g ? (g.scale > 0 ? g.width * g.scale + " px wide (" + g.scale + "× the canvas)" : "pet's own size setting") : ""
+                    text: g ? (g.scale > 0 ? g.width * g.scale + " px wide (" + g.scale + "× the canvas)" : "buddy's own size setting") : ""
                     color: root.dim
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -971,7 +971,7 @@ Panel {
                   fieldWidth: Style.space(96)
                   from: 1; to: 12
                   value: root.view && root.view.geometry.scale > 0 ? root.view.geometry.scale
-                    : root.view ? Math.max(1, Math.round((Number(root.pet && root.pet.size) || root.view.geometry.width * 3) / root.view.geometry.width)) : 3
+                    : root.view ? Math.max(1, Math.round((Number(root.buddy && root.buddy.size) || root.view.geometry.width * 3) / root.view.geometry.width)) : 3
                   onModified: function(v) { root.updatePack(function(pj) { pj.scale = v }) }
                 }
               }
@@ -981,7 +981,7 @@ Panel {
                 wrapMode: Text.WordWrap
                 readonly property var g: root.view ? root.view.geometry : null
                 text: g ? "Canvas " + g.width + "×" + g.height + " · feet on row " + Math.round(g.feetY) + " · hitbox " + g.hitBox.map(Math.round).join(", ")
-                  + "\nThe hitbox is where you click and drag the pet; the speech bubble sits on its top edge." : ""
+                  + "\nThe hitbox is where you click and drag the buddy; the speech bubble sits on its top edge." : ""
                 color: root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -1061,7 +1061,7 @@ Panel {
                   text: root.confirmDelete ? "Really delete?" : "Delete"
                   bordered: true
                   selected: root.confirmDelete
-                  tooltipText: "Moves the pack to ~/.local/share/pixel-pet/trash"
+                  tooltipText: "Moves the pack to ~/.local/share/pixel-buddy/trash"
                   onClicked: {
                     if (!root.confirmDelete) {
                       root.confirmDelete = true
@@ -1162,8 +1162,8 @@ Panel {
             width: parent.width
             spacing: Style.spacing.xxs
             MenuItem {
-              label: "Use for " + root.petName
-              active: !!root.service && root.service.petPackId(root.petId) !== root.menuPack
+              label: "Use for " + root.buddyName
+              active: !!root.service && root.service.buddyPackId(root.buddyId) !== root.menuPack
               onActivated: { var id = root.menuPack; root.menuPack = ""; root.showPack(id); root.usePack() }
             }
             MenuItem {
@@ -1200,8 +1200,8 @@ Panel {
               rightPadding: Style.spacing.lg
               wrapMode: Text.WordWrap
               text: "Delete this pack and its sprite files?"
-                + (root.service && root.service.petPackId(root.petId) === root.menuPack ? " The pet switches to another pack." : "")
-                + " They move to ~/.local/share/pixel-pet/trash."
+                + (root.service && root.service.buddyPackId(root.buddyId) === root.menuPack ? " The buddy switches to another pack." : "")
+                + " They move to ~/.local/share/pixel-buddy/trash."
               color: root.fg
               font.family: root.fontFamily
               font.pixelSize: Style.font.bodySmall

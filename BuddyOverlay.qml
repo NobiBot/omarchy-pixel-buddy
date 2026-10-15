@@ -2,14 +2,14 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 
-// 一块屏一个全屏透明 layer-shell 窗口，宠物在窗口内自由移动 / 被甩飞。
-// 输入区域（mask）只包含宠物身体和对话框，其余位置点击穿透到下面的窗口；
-// 右键菜单打开期间整个窗口接收输入，点空白处关闭菜单。
+// One fullscreen transparent layer-shell window per screen; the buddy moves around / gets thrown inside it.
+// The input region (mask) covers only the buddy's body and the speech bubble; clicks anywhere else pass through to the windows below.
+// While the right-click menu is open the whole window takes input, and clicking empty space closes the menu.
 PanelWindow {
   id: win
 
   property var service
-  property var pets: []
+  property var buddies: []
 
   anchors {
     top: true
@@ -18,17 +18,17 @@ PanelWindow {
     right: true
   }
   color: "transparent"
-  // Normal + exclusiveZone 0：窗口只占可用区域，不压 bar；窗口底边就是宠物的地面
+  // Normal + exclusiveZone 0: the window covers only the usable area and doesn't overlap the bar; its bottom edge is the buddy's ground
   exclusionMode: ExclusionMode.Normal
   exclusiveZone: 0
-  WlrLayershell.namespace: "pixel-pet"
+  WlrLayershell.namespace: "pixel-buddy"
   WlrLayershell.layer: service.config.layer === "overlay" ? WlrLayer.Overlay : WlrLayer.Top
   WlrLayershell.keyboardFocus: chat.open || menu.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
   visible: !service.hidden
 
-  property var petRegions: []
+  property var buddyRegions: []
 
-  // PanelWindow 的 width/height 是 implicit 尺寸的别名，四边锚定时恒为 0；真实尺寸从填满窗口的 Item 取
+  // PanelWindow's width/height alias the implicit size and stay 0 when anchored on all four sides; take the real size from an Item that fills the window
   Item {
     id: area
     anchors.fill: parent
@@ -38,12 +38,12 @@ PanelWindow {
 
   function rebuildRegions() {
     var out = []
-    for (var i = 0; i < petRepeater.count; i++) {
-      var item = petRepeater.itemAt(i)
+    for (var i = 0; i < buddyRepeater.count; i++) {
+      var item = buddyRepeater.itemAt(i)
       if (item) out.push(item.hitRegion)
     }
     out.push(chatRegion)
-    petRegions = out
+    buddyRegions = out
   }
 
   Region {
@@ -63,14 +63,14 @@ PanelWindow {
   }
 
   mask: Region {
-    regions: menu.open ? [fullRegion] : win.petRegions
+    regions: menu.open ? [fullRegion] : win.buddyRegions
   }
 
   Repeater {
-    id: petRepeater
-    model: win.pets
+    id: buddyRepeater
+    model: win.buddies
 
-    Pet {
+    Buddy {
       required property var modelData
       cfg: modelData
       service: win.service
@@ -81,15 +81,15 @@ PanelWindow {
     onItemRemoved: win.rebuildRegions()
   }
 
-  function openMenu(pet, px, py) {
-    menu.show(pet, px, py)
+  function openMenu(buddy, px, py) {
+    menu.show(buddy, px, py)
   }
 
-  function openChat(pet) {
-    chat.show(pet)
+  function openChat(buddy) {
+    chat.show(buddy)
   }
 
-  PetMenu {
+  BuddyMenu {
     id: menu
     anchors.fill: parent
     service: win.service

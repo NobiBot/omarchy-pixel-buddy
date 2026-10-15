@@ -7,74 +7,59 @@ import "lib/usage.mjs" as Usage
 import "lib/i18n.mjs" as I18n
 import "lib/packs.mjs" as Packs
 
-// pixel-pet 的状态中枢：配置、精灵包、Claude Code / Codex 工作状态聚合、用量、LLM、通知、IPC。
-// 每块有宠物的屏幕各一个 PetOverlay（全屏透明 layer-shell 窗口）。
+// pixel-buddy's state hub: config, sprite packs, Claude Code / Codex work status, usage, LLM, notifications, IPC.
+// One BuddyOverlay (fullscreen transparent layer-shell window) per screen that has buddies.
 Scope {
   id: root
 
-  // 宿主注入
+  // Injected by the host
   property var shell: null
   property string omarchyPath: ""
   property var manifest: null
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string pluginDir: decodeURIComponent(String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "").replace(/\/$/, ""))
-  readonly property string userConfigPath: home + "/.config/pixel-pet/config.jsonc"
-  readonly property string stateDir: home + "/.local/state/pixel-pet"
-  // hook 事件 socket 所在目录（0700），与 bin/pixel-pet-hook 一致
-  readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") + "/pixel-pet"
+  readonly property string userConfigPath: home + "/.config/pixel-buddy/config.jsonc"
+  readonly property string stateDir: home + "/.local/state/pixel-buddy"
+  // Directory of the hook event socket (0700), same as bin/pixel-buddy-hook
+  readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") + "/pixel-buddy"
 
-  // ------------------------------------------------------------ 配置
+  // ------------------------------------------------------------ Config
   property var config: ({})
   property bool ready: false
   property string configError: ""
   property bool hidden: false
-  // 界面语言：language 设置（auto / zh / en），auto 从 LANGUAGE / LC_ALL / LC_MESSAGES / LANG 判断
-  property string lang: "zh"
 
   function tr(key, params) {
-    return I18n.t(lang, key, params)
+    return I18n.t(key, params)
   }
 
-  readonly property var pets: (config.pets || []).filter(function(p) { return p.display !== "none" })
+  readonly property var buddies: (config.buddies || []).filter(function(p) { return p.display !== "none" })
 
   function rebuildConfig() {
     var base
     try {
       base = JSON.parse(defaultFile.text())
     } catch (e) {
-      console.warn("[pixel-pet] 内置配置解析失败:", e)
+      console.warn("[pixel-buddy] Couldn't parse the built-in config:", e)
       return
     }
     var merged = Object.assign({}, base)
-    var user = {}
     configError = ""
     var userText = userFile.loaded ? userFile.text() : ""
     if (userText.trim() !== "") {
       try {
-        // 顶层整段替换（与 dsh-pet 同口径）：写了哪个字段就整段用用户的
-        user = Jsonc.parseJsonc(userText) || {}
-        Object.assign(merged, user)
+        // Top-level keys replace whole (same as dsh-pet): any key the user sets is taken entirely from the user's file
+        Object.assign(merged, Jsonc.parseJsonc(userText) || {})
       } catch (e) {
         configError = String(e)
-        console.warn("[pixel-pet] 用户配置解析失败，使用内置配置:", e)
+        console.warn("[pixel-buddy] Couldn't parse the user config, using the built-in one:", e)
       }
-    }
-    lang = I18n.resolveLang(merged.language, {
-      LANGUAGE: Quickshell.env("LANGUAGE") || "",
-      LC_ALL: Quickshell.env("LC_ALL") || "",
-      LC_MESSAGES: Quickshell.env("LC_MESSAGES") || "",
-      LANG: Quickshell.env("LANG") || ""
-    })
-    // 内置文案是中文：英文界面下，用户没自定义的就换成英文版
-    if (lang === "en") {
-      if (!("workStatusTexts" in user)) merged.workStatusTexts = I18n.WORK_STATUS_TEXTS_EN
-      if (!("whisperPrompt" in user)) merged.whisperPrompt = I18n.WHISPER_PROMPT_EN
     }
     config = merged
     rebuildRuntimes()
     ready = true
-    // restart() 会冲掉 running 绑定，所以按开关显式启停，否则 whisperAuto=false 也会定时碎碎念
+    // restart() wipes the running binding, so start and stop explicitly by the setting; otherwise it would murmur on a timer even with whisperAuto=false
     if (merged.whisperAuto === true) whisperTimer.restart()
     else whisperTimer.stop()
     usageTimer.restart()
@@ -96,34 +81,34 @@ Scope {
   }
 
   // ------------------------------------------------------------ Sprite packs
-  // Sources live in packs/ (a symlink to ~/.local/share/pixel-pet/packs, so edits never trip
-  // Omarchy's plugin reload). bin/pixel-pet-pack watch rebuilds a pack when its files change
-  // and lists every pack in ~/.cache/pixel-pet/index.json. Each pet plays the pack the bar
-  // widget picked for it (~/.config/pixel-pet/ui.json), else pets[].pack, else "default".
-  readonly property string packTool: pluginDir + "/bin/pixel-pet-pack"
-  readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/pixel-pet"
-  readonly property string uiStatePath: home + "/.config/pixel-pet/ui.json"
+  // Sources live in packs/ (a symlink to ~/.local/share/pixel-buddy/packs, so edits never trip
+  // Omarchy's plugin reload). bin/pixel-buddy-pack watch rebuilds a pack when its files change
+  // and lists every pack in ~/.cache/pixel-buddy/index.json. Each buddy plays the pack the bar
+  // widget picked for it (~/.config/pixel-buddy/ui.json), else buddies[].pack, else "default".
+  readonly property string packTool: pluginDir + "/bin/pixel-buddy-pack"
+  readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/pixel-buddy"
+  readonly property string uiStatePath: home + "/.config/pixel-buddy/ui.json"
   property var packIndex: ({})
   property var packList: []
-  property var uiState: ({ pets: {} })
-  // petId -> everything Pet.qml needs from its pack (see makeRuntime)
+  property var uiState: ({ buddies: {} })
+  // buddyId -> everything Buddy.qml needs from its pack (see makeRuntime)
   property var runtimes: ({})
-  // Unsaved geometry from the geometry editor, shown live on the pets: { packId, hitBox, feetY, facing, scale }
+  // Unsaved geometry from the geometry editor, shown live on the buddies: { packId, hitBox, feetY, facing, scale }
   property var geometryPreview: null
   property string packMessage: ""
   property bool packMessageError: false
   property string busyPack: ""
   // packId -> { builtAt, names }: animations whose frames changed in the latest rebuild,
-  // so the pet can show what you just saved
+  // so the buddy can show what you just saved
   property var packChanges: ({})
 
   readonly property var emptyRuntime: makeRuntime("")
 
-  function petPackId(petId) {
-    var chosen = (uiState.pets || {})[petId]
+  function buddyPackId(buddyId) {
+    var chosen = (uiState.buddies || {})[buddyId]
     if (chosen && packIndex[chosen]) return chosen
-    var pet = (config.pets || []).filter(function(p) { return p.id === petId })[0]
-    if (pet && pet.pack && packIndex[pet.pack]) return pet.pack
+    var buddy = (config.buddies || []).filter(function(p) { return p.id === buddyId })[0]
+    if (buddy && buddy.pack && packIndex[buddy.pack]) return buddy.pack
     if (packIndex["default"]) return "default"
     return packList.length ? packList[0].id : ""
   }
@@ -137,7 +122,7 @@ Scope {
     return e ? (e.pack || {}) : {}
   }
 
-  // Role mapping, geometry and status of one pack, for the pets and the bar widget.
+  // Role mapping, geometry and status of one pack, for the buddies and the bar widget.
   // `saved` = ignore the geometry editor's unsaved preview.
   function packView(packId, saved) {
     var e = packIndex[packId]
@@ -170,7 +155,7 @@ Scope {
       + encodeURIComponent(file)
   }
 
-  function makeRuntime(packId, pet) {
+  function makeRuntime(packId, buddy) {
     var sp = config.sprite || {}
     var view = packId ? packView(packId) : null
     var base = config.animations || {}
@@ -181,7 +166,7 @@ Scope {
     if (view) view.names.forEach(function(n) { durations[n] = Number(view.entry.animations[n].ms) || 0 })
     var playSec = Object.assign({}, sp.playSec || {}, beh.playSec || {})
     var minPlay = Number((view && view.pack.minPlaySec) || sp.minPlaySec) || 0
-    var size = geo.scale > 0 ? geo.width * geo.scale : (Number(pet && pet.size) || geo.width * 3)
+    var size = geo.scale > 0 ? geo.width * geo.scale : (Number(buddy && buddy.size) || geo.width * 3)
     return {
       packId: packId,
       version: view ? (view.entry.builtAt || 0) : 0,
@@ -191,7 +176,7 @@ Scope {
       fps: Number(sp.fps) || 10,
       canvasW: geo.width,
       canvasH: geo.height,
-      // Hitbox recentred on the box; offsetX is how far the drawing shifts to match (Pet.qml stage)
+      // Hitbox recentred on the box; offsetX is how far the drawing shifts to match (Buddy.qml stage)
       offsetX: 0.5 - (geo.hitBox[0] + geo.hitBox[2]) / 2 / geo.width,
       hitBox: {
         x0: geo.hitBox[0] / geo.width + 0.5 - (geo.hitBox[0] + geo.hitBox[2]) / 2 / geo.width,
@@ -209,8 +194,8 @@ Scope {
 
   function rebuildRuntimes() {
     var next = {}
-    var all = config.pets || []
-    for (var i = 0; i < all.length; i++) next[all[i].id] = makeRuntime(petPackId(all[i].id), all[i])
+    var all = config.buddies || []
+    for (var i = 0; i < all.length; i++) next[all[i].id] = makeRuntime(buddyPackId(all[i].id), all[i])
     runtimes = next
     refreshNotifyIcons()
   }
@@ -277,15 +262,15 @@ Scope {
     running: true
     stdout: SplitParser {
       onRead: function(line) {
-        console.log("[pixel-pet] packs: " + line)
+        console.log("[pixel-buddy] packs: " + line)
         indexReload.restart()
       }
     }
     stderr: SplitParser {
-      onRead: function(line) { console.warn("[pixel-pet] packs: " + line) }
+      onRead: function(line) { console.warn("[pixel-buddy] packs: " + line) }
     }
     onExited: function(exitCode) {
-      console.warn("[pixel-pet] pack watcher exited (" + exitCode + "), restarting")
+      console.warn("[pixel-buddy] pack watcher exited (" + exitCode + "), restarting")
       watcherRestart.restart()
     }
   }
@@ -305,20 +290,20 @@ Scope {
     onLoaded: {
       try {
         var s = JSON.parse(text())
-        root.uiState = s && typeof s === "object" ? Object.assign({ pets: {} }, s) : { pets: {} }
+        root.uiState = s && typeof s === "object" ? Object.assign({ buddies: {} }, s) : { buddies: {} }
       } catch (e) {
-        root.uiState = { pets: {} }
+        root.uiState = { buddies: {} }
       }
       root.rebuildRuntimes()
     }
   }
 
   // `pending` = the pack was just created and may not be in the index yet
-  function setPetPack(petId, packId, pending) {
+  function setBuddyPack(buddyId, packId, pending) {
     if (!packIndex[packId] && !pending) return "no-pack"
-    var pets = Object.assign({}, uiState.pets || {})
-    pets[petId] = packId
-    uiState = Object.assign({}, uiState, { pets: pets })
+    var buddies = Object.assign({}, uiState.buddies || {})
+    buddies[buddyId] = packId
+    uiState = Object.assign({}, uiState, { buddies: buddies })
     uiFile.setText(JSON.stringify(uiState, null, 2) + "\n")
     rebuildRuntimes()
     return "ok"
@@ -419,7 +404,7 @@ Scope {
       root.packTaskDone = null
       root.busyPack = ""
       indexFile.reload()
-      if (exitCode !== 0) root.showPackMessage(packTaskErr.text.trim().replace(/^pixel-pet-pack: /, "") || "Command failed", true)
+      if (exitCode !== 0) root.showPackMessage(packTaskErr.text.trim().replace(/^pixel-buddy-pack: /, "") || "Command failed", true)
       if (done) done(exitCode, packTaskOut.text.trim())
     }
   }
@@ -460,7 +445,7 @@ Scope {
 
   function deletePack(packId, done) {
     return runPackTask(["delete", packId], packId, function(code) {
-      if (code === 0) root.showPackMessage("Moved to ~/.local/share/pixel-pet/trash", false)
+      if (code === 0) root.showPackMessage("Moved to ~/.local/share/pixel-buddy/trash", false)
       if (code === 0 && done) done()
     })
   }
@@ -474,7 +459,7 @@ Scope {
     id: asepriteProc
     stderr: StdioCollector { id: asepriteErr }
     onExited: function(exitCode) {
-      if (exitCode !== 0) root.showPackMessage(asepriteErr.text.trim().replace(/^pixel-pet-pack: /, ""), true)
+      if (exitCode !== 0) root.showPackMessage(asepriteErr.text.trim().replace(/^pixel-buddy-pack: /, ""), true)
     }
   }
 
@@ -483,13 +468,13 @@ Scope {
     Quickshell.execDetached(["xdg-open", e ? e.dir : root.pluginDir + "/packs"])
   }
 
-  // Notification icons come from the first pet's pack: first frames of its waiting / success / error
-  // animations, cut by pixel-pet-pack whenever that mapping or the build changes.
+  // Notification icons come from the first buddy's pack: first frames of its waiting / success / error
+  // animations, cut by pixel-buddy-pack whenever that mapping or the build changes.
   property string notifyPack: ""
   property string notifyIconsKey: ""
 
   function refreshNotifyIcons() {
-    var first = (config.pets || [])[0]
+    var first = (config.buddies || [])[0]
     var rt = first ? runtimes[first.id] : null
     if (!rt || !rt.packId) return
     var ws = rt.anims.events.workStatus
@@ -540,14 +525,14 @@ Scope {
       root.userFileSeen = true
       if (defaultFile.loaded) root.rebuildConfig()
     }
-    // 只在首次加载、或原本存在的文件被删掉时重建；轮询时的"还不存在"不重建（rebuildConfig 会重启各定时器）
+    // Rebuild only on first load or when a file that existed is deleted; "doesn't exist yet" while polling doesn't rebuild (rebuildConfig restarts every timer)
     onLoadFailed: if (defaultFile.loaded && (root.userFileSeen || !root.ready)) {
       root.userFileSeen = false
       root.rebuildConfig()
     }
   }
 
-  // 文件监听只盯已存在的文件：shell 启动后才新建的 config.jsonc 靠轮询发现
+  // File watching only covers files that already exist: a config.jsonc created after the shell started is found by polling
   property bool userFileSeen: false
   Timer {
     interval: 5000
@@ -556,15 +541,15 @@ Scope {
     onTriggered: userFile.reload()
   }
 
-  // ------------------------------------------------------------ 宠物对外信号
-  // petId 为空 = 所有宠物
-  signal speak(string petId, string text, string meme, string kind)
-  signal playRequest(string petId, string name)
+  // ------------------------------------------------------------ Buddy signals
+  // Empty buddyId = all buddies
+  signal speak(string buddyId, string text, string meme, string kind)
+  signal playRequest(string buddyId, string name)
   signal usageShow(var summary)
 
-  // ------------------------------------------------------------ 工作状态
+  // ------------------------------------------------------------ Work status
   property var wsStore: WS.createStore()
-  // 当前展示的会话快照（对象引用变化 = 宠物要切档位）；null = 没有活跃会话
+  // Snapshot of the session being shown (a new object reference = buddies switch levels); null = no active session
   property var workStatus: null
   property string lastAgent: "claude"
 
@@ -573,7 +558,7 @@ Scope {
     return a[agent] !== false
   }
 
-  // hook 经 socat 把事件写进 runtimeDir/events.sock，每行一个 JSON（事件内容不进进程参数）
+  // The hook writes events into runtimeDir/events.sock through socat, one JSON per line (event contents never go in process arguments)
   EventServer {
     id: eventServer
     path: root.runtimeDir + "/events.sock"
@@ -595,11 +580,11 @@ Scope {
     if (res.changed) refreshWorkStatus()
     var mode = summaryMode()
     if (mode === "model") {
-      // 新一轮还没有总结时，第一步出现后稍等几秒先总结一次，不必等满 intervalSec
+      // When a new turn has no summary yet, summarize once a few seconds after the first step instead of waiting the full intervalSec
       if (res.entry && res.entry.steps.length && !res.entry.summary && !summaryKick.running) summaryKick.restart()
     } else if (mode === "transcript" && res.entry) {
       if (ev.event === "Stop" && ev.lastMessage) {
-        // Stop 自带最后一条回复，不用读文件
+        // Stop carries the last reply, so no need to read the file
         if (WS.setSummary(wsStore, res.entry.key, WS.formatNarration(ev.lastMessage))) refreshWorkStatus()
       } else if (ev.event === "PreToolUse" || ev.event === "Stop") {
         narrationKey = res.entry.key
@@ -616,7 +601,7 @@ Scope {
       if (prev) workStatus = null
       return
     }
-    // 档位、工具、命令或总结任一变化都发新快照；宠物只在会话 / 档位变化时切动画，其余只刷新气泡
+    // Any change of level, tool, command or summary sends a new snapshot; buddies switch animations only on session / level changes and otherwise just refresh the bubble
     if (prev && prev.key === cur.key && prev.state === cur.state && prev.tool === cur.tool
       && prev.detail === cur.detail && prev.summary === cur.summary) return
     workStatus = Object.assign({}, cur)
@@ -629,11 +614,11 @@ Scope {
     onTriggered: if (WS.prune(root.wsStore, Date.now())) root.refreshWorkStatus()
   }
 
-  // ------------------------------------------------------------ 系统通知
+  // ------------------------------------------------------------ System notifications
   readonly property var notifyTitleKeys: ({ waiting: "notifyWaiting", success: "notifySuccess", error: "notifyError" })
   readonly property var notifyIcons: ({ waiting: "approval", success: "done", error: "error" })
-  // 通知只发 agent 名称和状态等固定文字。Omarchy 的通知服务会把收到的标题和正文
-  // 放进 bash 进程参数里落盘，所以无论怎么发，项目名和消息都不能进通知。
+  // Notifications carry only fixed text like the agent name and status. Omarchy's notification service puts the title and body it receives
+  // into bash process arguments and writes them to disk, so however they're sent, project names and messages must never go into notifications.
   function notifyFor(entry) {
     if (config.notificationsEnabled === false) return
     var titleKey = notifyTitleKeys[entry.state]
@@ -641,17 +626,17 @@ Scope {
     var onlyUnfocused = !config.notify || config.notify.onlyWhenUnfocused !== false
     if (onlyUnfocused && entry.focused) return
     var agentName = entry.agent === "codex" ? "Codex" : "Claude Code"
-    Quickshell.execDetached(["notify-send", "-a", "pixel-pet",
+    Quickshell.execDetached(["notify-send", "-a", "pixel-buddy",
       "-i", (root.notifyPack ? root.cacheDir + "/packs/" + root.notifyPack + "/pic" : root.pluginDir + "/assets/pic")
         + "/notify-" + notifyIcons[entry.state] + ".png",
       agentName + " · " + tr(titleKey)])
   }
 
-  // ------------------------------------------------------------ 用量
-  // 数据源：
-  //   omarchy = omarchy.agents 插件的记录（由 omarchy-agent-usage-update 生成），Omarchy 上直接用
-  //   builtin = bin/pixel-pet-usage 自己采集，行为移植自 omarchy agents 的采集脚本，供非 Omarchy 环境使用
-  // usage.source 可强制指定；默认 auto = 能找到 omarchy-agent-usage-update 就用 omarchy
+  // ------------------------------------------------------------ Usage
+  // Data sources:
+  //   omarchy = records from the omarchy.agents plugin (generated by omarchy-agent-usage-update), used directly on Omarchy
+  //   builtin = collected by bin/pixel-buddy-usage itself, ported from omarchy agents' collection scripts, for non-Omarchy setups
+  // usage.source can force one; the default auto = use omarchy when omarchy-agent-usage-update is found
   property string omarchyCollector: ""
   property bool usageSourceChecked: false
   readonly property string usageSource: {
@@ -661,7 +646,7 @@ Scope {
   }
   readonly property string usageDir: !usageSourceChecked ? ""
     : usageSource === "omarchy" ? home + "/.local/state/omarchy/agents/usage" : stateDir + "/usage"
-  // 原始记录：倒计时在显示时才计算，避免读取后过一阵再显示时倒计时不准
+  // Raw records: countdowns are computed at display time, so they stay accurate when shown a while after reading
   property var usageRecords: ({})
   property var usageTiers: ({})
   property bool usageShowPending: false
@@ -674,7 +659,7 @@ Scope {
     onExited: {
       root.omarchyCollector = collectorOut.text.trim()
       root.usageSourceChecked = true
-      console.log("[pixel-pet] 用量数据源: " + root.usageSource + (root.usageSource === "omarchy" ? " (" + root.omarchyCollector + ")" : ""))
+      console.log("[pixel-buddy] usage source: " + root.usageSource + (root.usageSource === "omarchy" ? " (" + root.omarchyCollector + ")" : ""))
     }
   }
 
@@ -701,17 +686,17 @@ Scope {
     var next = Object.assign({}, usageRecords)
     next[agent] = rec
     usageRecords = next
-    var summary = rec ? Usage.summarize(rec, Date.now(), lang) : null
+    var summary = rec ? Usage.summarize(rec, Date.now()) : null
     var prevTier = usageTiers[agent]
     var tiers = Object.assign({}, usageTiers)
     tiers[agent] = summary ? summary.tier : -1
     usageTiers = tiers
-    // 首次读取不播；之后档位变化时播一次（等待中的手动查看会自己显示，这里不重复）
+    // Don't play on the first read; after that, play once when the level changes (a pending manual check shows itself, so it isn't repeated here)
     if (summary && prevTier !== undefined && prevTier !== summary.tier && agent === usageAgent() && !usageShowPending)
       usageShow(summary)
   }
 
-  // 先刷新再显示：记录超过 60 秒没更新就重新采集（manual = 用户主动查看，期间提示"正在刷新"）
+  // Refresh before showing: re-collect if the record is more than 60 seconds old (manual = the user asked; shows "refreshing" meanwhile)
   function showUsage(manual) {
     var agent = usageAgent()
     if (!usageRecords[agent] && usageRecords[agent === "claude" ? "codex" : "claude"]) agent = agent === "claude" ? "codex" : "claude"
@@ -727,7 +712,7 @@ Scope {
   function displayUsage(manual) {
     var agent = usageAgent()
     var rec = usageRecords[agent] || usageRecords[agent === "claude" ? "codex" : "claude"]
-    var summary = rec ? Usage.summarize(rec, Date.now(), lang) : null
+    var summary = rec ? Usage.summarize(rec, Date.now()) : null
     if (summary) usageShow(summary)
     else if (manual) speak("", tr(usageSource === "omarchy" ? "usageNoDataOmarchy" : "usageNoDataBuiltin"), "", "info")
   }
@@ -737,7 +722,7 @@ Scope {
     if (usageProc.running || !usageSourceChecked || !agents.length) return
     var cmd = usageSource === "omarchy"
       ? [omarchyCollector || "omarchy-agent-usage-update", "--limits-only"]
-      : [root.pluginDir + "/bin/pixel-pet-usage"]
+      : [root.pluginDir + "/bin/pixel-buddy-usage"]
     usageProc.command = cmd.concat(agents)
     usageProc.running = true
     usageRefreshTimeout.restart()
@@ -759,7 +744,7 @@ Scope {
     onTriggered: if (usageProc.running) usageProc.signal(15)
   }
 
-  // 等文件重新读完再显示；刷新失败时显示旧数据（气泡会注明是多久前的）
+  // Show once the file has been re-read; if the refresh fails, show the old data (the bubble notes how old it is)
   Timer {
     id: usageShowDelay
     interval: 400
@@ -789,7 +774,7 @@ Scope {
     onLoaded: root.updateUsage("codex", text())
   }
 
-  // 定时显示（余额动画周期）
+  // Timed display (usage animation interval)
   Timer {
     id: usageTimer
     interval: Math.max(60, Number((root.config.eventsRefreshSec || {}).balance) || 1800) * 1000
@@ -798,7 +783,7 @@ Scope {
     onTriggered: root.showUsage(false)
   }
 
-  // 后台保鲜：记录比 usage.refreshSec 旧就重新采集（Omarchy 上 agents 组件通常已在刷新，这里基本不触发）
+  // Keep fresh in the background: re-collect when the record is older than usage.refreshSec (on Omarchy the agents widget usually refreshes already, so this rarely fires)
   Timer {
     interval: Math.max(60, Number((root.config.usage || {}).refreshSec) || 900) * 1000
     running: root.ready && root.usageSourceChecked
@@ -811,43 +796,41 @@ Scope {
     }
   }
 
-  // ------------------------------------------------------------ 碎碎念 / 对话（只在显式触发或 whisperAuto 开启时调用 LLM）
+  // ------------------------------------------------------------ Murmurs / chat (the LLM is only called when explicitly triggered or with whisperAuto on)
   Llm {
     id: llm
     name: "chat"
-    lang: root.lang
     home: root.home
     stateDir: root.stateDir
-    onFinished: function(petId, kind, text, meme, failed) {
+    onFinished: function(buddyId, kind, text, meme, failed) {
       if (failed) {
-        root.speak(petId, text, "", "error")
+        root.speak(buddyId, text, "", "error")
         return
       }
-      if (kind === "chat") root.rememberChat(petId, llm.lastUserText, text)
-      root.speak(petId, text, root.knownMeme(meme), kind)
+      if (kind === "chat") root.rememberChat(buddyId, llm.lastUserText, text)
+      root.speak(buddyId, text, root.knownMeme(meme), kind)
     }
   }
 
   readonly property bool llmBusy: llm.busy
 
-  // 自动任务（步骤总结、定时碎碎念）专用：独立实例，不和手动对话抢；用 autoModel 指定的便宜模型
+  // For automatic tasks only (step summaries, timed murmurs): a separate instance that doesn't compete with manual chat; uses the cheap model set in autoModel
   Llm {
     id: autoLlm
     name: "auto"
-    lang: root.lang
     home: root.home
     stateDir: root.stateDir
-    onFinished: function(petId, kind, text, meme, failed) {
+    onFinished: function(buddyId, kind, text, meme, failed) {
       if (kind === "summary") {
         if (failed) {
-          console.warn("[pixel-pet] 步骤总结失败:", text)
+          console.warn("[pixel-buddy] step summary failed:", text)
           return
         }
         if (WS.setSummary(root.wsStore, autoLlm.tag, text.replace(/\s+/g, " ").slice(0, 30))) root.refreshWorkStatus()
         return
       }
-      if (failed) console.warn("[pixel-pet] 定时碎碎念失败:", text)
-      else root.speak(petId, text, meme, kind)
+      if (failed) console.warn("[pixel-buddy] timed murmur failed:", text)
+      else root.speak(buddyId, text, meme, kind)
     }
   }
 
@@ -857,17 +840,17 @@ Scope {
     return { provider: provider, model: (provider === "codex" ? a.codexModel : a.claudeModel) || "" }
   }
 
-  // ------------------------------------------------------------ 步骤总结（stepSummary.enabled，默认关）
+  // ------------------------------------------------------------ Step summaries (stepSummary.enabled, off by default)
   readonly property var stepSummaryCfg: config.stepSummary || ({})
 
-  // off / transcript（读会话记录里 agent 自己写的话）/ model（用 autoModel 总结）；旧写法 enabled: true 视为 model
+  // off / transcript (reads what the agent itself wrote in the transcript) / model (summarized by autoModel); the old form enabled: true counts as model
   function summaryMode() {
     var c = stepSummaryCfg
     if (c.mode === "off" || c.mode === "transcript" || c.mode === "model") return c.mode
     return c.enabled === true ? "model" : "off"
   }
 
-  // ---- transcript 模式：从会话记录末尾读本轮最新一段 assistant 文字
+  // ---- transcript mode: read the latest assistant text of this turn from the end of the transcript
   property string narrationKey: ""
   property bool narrationPending: false
 
@@ -879,16 +862,16 @@ Scope {
       return
     }
     narrationProc.key = entry.key
-    // 会话记录路径含项目路径和会话 ID，走环境变量（只有本用户可读），不放进进程参数
+    // The transcript path contains the project path and session ID, so it goes in an env var (readable only by this user), never in process arguments
     narrationProc.environment = ({
-      PIXEL_PET_TRANSCRIPT: entry.transcript,
-      PIXEL_PET_SINCE: new Date(entry.turnAt - 2000).toISOString()
+      PIXEL_BUDDY_TRANSCRIPT: entry.transcript,
+      PIXEL_BUDDY_SINCE: new Date(entry.turnAt - 2000).toISOString()
     })
-    narrationProc.command = [root.pluginDir + "/bin/pixel-pet-last-message"]
+    narrationProc.command = [root.pluginDir + "/bin/pixel-buddy-last-message"]
     narrationProc.running = true
   }
 
-  // hook 有时比记录文件写入早一点：稍等再读
+  // The hook sometimes arrives slightly before the transcript is written: wait a moment before reading
   Timer {
     id: narrationDelay
     interval: 500
@@ -901,7 +884,7 @@ Scope {
     stdout: StdioCollector { id: narrationOut }
     onExited: function(exitCode) {
       var text = WS.formatNarration(narrationOut.text)
-      // 没读到（记录还没写入 / 本轮还没说话）就保留上一段，不清空
+      // If nothing was read (not written yet / nothing said this turn), keep the previous text instead of clearing it
       if (exitCode === 0 && text && WS.setSummary(root.wsStore, narrationProc.key, text)) root.refreshWorkStatus()
       if (root.narrationPending) {
         root.narrationPending = false
@@ -940,23 +923,23 @@ Scope {
     onTriggered: root.summarizeCurrentStep()
   }
 
-  function petById(petId) {
-    for (var i = 0; i < pets.length; i++) if (pets[i].id === petId) return pets[i]
-    return pets.length ? pets[0] : null
+  function buddyById(buddyId) {
+    for (var i = 0; i < buddies.length; i++) if (buddies[i].id === buddyId) return buddies[i]
+    return buddies.length ? buddies[0] : null
   }
 
   function memeNames() {
     return Object.keys(config.memes || {})
   }
 
-  // 对话回复里的表情包名由模型给出，而名字会拼进图片路径：只认配置里有的
+  // Meme names in chat replies come from the model and get joined into image paths: accept only names in the config
   function knownMeme(name) {
     var memes = config.memes || {}
     return name && Object.prototype.hasOwnProperty.call(memes, name) ? name : ""
   }
 
-  function persona(pet) {
-    return (config.whisperPrompt || "") + (lang === "en" ? " " : "") + tr("personaName", { name: pet.name || pet.id })
+  function persona(buddy) {
+    return (config.whisperPrompt || "") + " " + tr("personaName", { name: buddy.name || buddy.id })
   }
 
   function llmModel() {
@@ -964,51 +947,49 @@ Scope {
     return (l.provider === "codex" ? l.codexModel : l.claudeModel) || ""
   }
 
-  function requestWhisper(petId, auto) {
-    var pet = petById(petId)
-    if (!pet) return "no-pet"
+  function requestWhisper(buddyId, auto) {
+    var buddy = buddyById(buddyId)
+    if (!buddy) return "no-buddy"
     var runner = auto ? autoLlm : llm
     if (runner.busy) return "busy"
     var meme = ""
     var names = memeNames()
     if (config.whisperImageEnabled !== false && names.length) meme = names[Math.floor(Math.random() * names.length)]
     var now = new Date()
-    var sep = lang === "en" ? " " : ""
     var prompt = tr("whisperNow", { time: Qt.formatTime(now, "HH:mm") })
-    if (meme) prompt += sep + tr("whisperMeme", { desc: config.memes[meme] })
-    prompt += sep + tr("whisperOutput")
+    if (meme) prompt += " " + tr("whisperMeme", { desc: config.memes[meme] })
+    prompt += " " + tr("whisperOutput")
     if (auto) {
       var m = autoModelFor()
-      autoLlm.run(m.provider, m.model, persona(pet), prompt, pet.id, "whisper", meme, true)
+      autoLlm.run(m.provider, m.model, persona(buddy), prompt, buddy.id, "whisper", meme, true)
     } else {
-      llm.run((config.llm || {}).provider, llmModel(), persona(pet), prompt, pet.id, "whisper", meme, false)
+      llm.run((config.llm || {}).provider, llmModel(), persona(buddy), prompt, buddy.id, "whisper", meme, false)
     }
     return "ok"
   }
 
-  function requestChat(petId, text) {
-    var pet = petById(petId)
-    if (!pet || !text) return "no-pet"
+  function requestChat(buddyId, text) {
+    var buddy = buddyById(buddyId)
+    if (!buddy || !text) return "no-buddy"
     if (llm.busy) return "busy"
-    var sep = lang === "en" ? " " : ""
-    var system = persona(pet) + sep + tr("chatIntro")
+    var system = persona(buddy) + " " + tr("chatIntro")
     var useMemes = config.chatImageEnabled !== false && memeNames().length > 0
     if (useMemes) {
       var limit = Number(config.chatImageLimit)
       var names = memeNames()
       if (limit > 0) names = names.slice(0, limit)
-      system += sep + tr("chatJson") + sep
-        + tr("chatMemes", { list: names.map(function(n) { return n + (lang === "en" ? ": " : "：") + config.memes[n] }).join(lang === "en" ? "; " : "；") })
+      system += " " + tr("chatJson") + " "
+        + tr("chatMemes", { list: names.map(function(n) { return n + ": " + config.memes[n] }).join("; ") })
     } else {
-      system += sep + tr("chatPlain")
+      system += " " + tr("chatPlain")
     }
     var rounds = Number(config.chatMemoryRounds)
     if (!(rounds >= 0)) rounds = 5
-    var history = chatHistory(pet.id).slice(-rounds)
+    var history = chatHistory(buddy.id).slice(-rounds)
     var prompt = history.map(function(h) { return tr("chatOwner") + h.q + "\n" + tr("chatYou") + h.a }).join("\n")
     prompt += (prompt ? "\n" : "") + tr("chatOwner") + text
     llm.lastUserText = text
-    llm.run((config.llm || {}).provider, llmModel(), system, prompt, pet.id, "chat", "", false)
+    llm.run((config.llm || {}).provider, llmModel(), system, prompt, buddy.id, "chat", "", false)
     return "ok"
   }
 
@@ -1018,27 +999,27 @@ Scope {
     running: root.ready && root.config.whisperAuto === true
     repeat: true
     onTriggered: {
-      // 有 agent 正在干活时不打扰，也不和它抢额度
+      // Don't interrupt while an agent is working, and don't compete with it for quota
       if (WS.anyBusy(root.wsStore)) return
-      for (var i = 0; i < root.pets.length; i++) {
-        if (root.pets[i].whisperEnabled !== false) {
-          root.requestWhisper(root.pets[i].id, true)
+      for (var i = 0; i < root.buddies.length; i++) {
+        if (root.buddies[i].whisperEnabled !== false) {
+          root.requestWhisper(root.buddies[i].id, true)
           return
         }
       }
     }
   }
 
-  // 对话记忆：{ petId: [{ q, a, t }] }，全量保存，每次请求只截最近 chatMemoryRounds 轮
+  // Chat memory: { buddyId: [{ q, a, t }] }, saved in full; each request uses only the last chatMemoryRounds rounds
   property var memory: ({})
 
-  function chatHistory(petId) {
-    return memory[petId] || []
+  function chatHistory(buddyId) {
+    return memory[buddyId] || []
   }
 
-  function rememberChat(petId, q, a) {
+  function rememberChat(buddyId, q, a) {
     var next = Object.assign({}, memory)
-    next[petId] = chatHistory(petId).concat([{ q: q, a: a, t: Date.now() }])
+    next[buddyId] = chatHistory(buddyId).concat([{ q: q, a: a, t: Date.now() }])
     memory = next
     memoryFile.setText(JSON.stringify(next, null, 2))
   }
@@ -1056,19 +1037,19 @@ Scope {
     }
   }
 
-  // 对话记忆、模型提示词文件和事件 socket 只给本用户访问；目录建好后再开始监听
+  // Chat memory, model prompt files and the event socket are only accessible to this user; listening starts once the directories exist
   Process {
     running: true
-    command: ["bash", "-c", 'mkdir -p "$0"; mkdir -p -m 700 "$@"; chmod 700 "$@"', root.home + "/.config/pixel-pet", root.stateDir, root.runtimeDir]
+    command: ["bash", "-c", 'mkdir -p "$0"; mkdir -p -m 700 "$@"; chmod 700 "$@"', root.home + "/.config/pixel-buddy", root.stateDir, root.runtimeDir]
     onExited: function(exitCode) {
       if (exitCode === 0) eventServer.start()
-      else console.warn("[pixel-pet] 无法创建 " + root.runtimeDir + "，收不到 hook 事件")
+      else console.warn("[pixel-buddy] couldn't create " + root.runtimeDir + ", hook events won't arrive")
     }
   }
 
-  // ------------------------------------------------------------ IPC：omarchy-shell pixel-pet <method> [arg]
+  // ------------------------------------------------------------ IPC: omarchy-shell pixel-buddy <method> [arg]
   IpcHandler {
-    target: "pixel-pet"
+    target: "pixel-buddy"
 
     function say(text: string): string {
       root.speak("", text, "", "info")
@@ -1092,20 +1073,20 @@ Scope {
       root.reloadConfig()
       return "ok"
     }
-    // omarchy-shell pixel-pet packs | usePack <pack> (all pets) or <pet>=<pack> | buildPack <pack> | editGeometry <pack>
+    // omarchy-shell pixel-buddy packs | usePack <pack> (all buddies) or <buddy>=<pack> | buildPack <pack> | editGeometry <pack>
     function packs(): string {
       return JSON.stringify(root.packList.map(function(p) {
         var v = root.packView(p.id)
         return { id: p.id, name: p.name, status: p.status, roles: v.resolved.mapped + "/" + v.resolved.total,
-          pets: (root.config.pets || []).filter(function(pet) { return root.petPackId(pet.id) === p.id }).map(function(pet) { return pet.id }) }
+          buddies: (root.config.buddies || []).filter(function(buddy) { return root.buddyPackId(buddy.id) === p.id }).map(function(buddy) { return buddy.id }) }
       }))
     }
     function usePack(spec: string): string {
       var eq = spec.indexOf("=")
       var packId = eq >= 0 ? spec.slice(eq + 1) : spec
-      var ids = eq >= 0 ? [spec.slice(0, eq)] : (root.config.pets || []).map(function(p) { return p.id })
+      var ids = eq >= 0 ? [spec.slice(0, eq)] : (root.config.buddies || []).map(function(p) { return p.id })
       var r = "ok"
-      ids.forEach(function(id) { r = root.setPetPack(id, packId) })
+      ids.forEach(function(id) { r = root.setBuddyPack(id, packId) })
       return r
     }
     function editGeometry(packId: string): string {
@@ -1125,47 +1106,46 @@ Scope {
         ready: root.ready,
         hidden: root.hidden,
         configError: root.configError,
-        pets: root.pets.map(function(p) { return p.id }),
+        buddies: root.buddies.map(function(p) { return p.id }),
         workStatus: root.workStatus,
         sessions: root.wsStore.sessions,
         lastAgent: root.lastAgent,
         usageSource: root.usageSource,
         usage: Object.keys(root.usageRecords).reduce(function(o, a) {
           var r = root.usageRecords[a]
-          o[a] = r ? { updatedAt: r.updatedAt, summary: Usage.summarize(r, Date.now(), root.lang) } : null
+          o[a] = r ? { updatedAt: r.updatedAt, summary: Usage.summarize(r, Date.now()) } : null
           return o
         }, {}),
         llmBusy: llm.busy,
         autoBusy: autoLlm.busy,
         autoModel: root.autoModelFor(),
         stepSummary: root.summaryMode(),
-        lang: root.lang,
         whisperAuto: root.config.whisperAuto === true
       })
     }
   }
 
-  // ------------------------------------------------------------ 每块屏一个透明 overlay
-  function screenName(pet) {
+  // ------------------------------------------------------------ One transparent overlay per screen
+  function screenName(buddy) {
     var screens = Quickshell.screens
-    if (pet.screen) {
-      for (var i = 0; i < screens.length; i++) if (screens[i].name === pet.screen) return pet.screen
+    if (buddy.screen) {
+      for (var i = 0; i < screens.length; i++) if (screens[i].name === buddy.screen) return buddy.screen
     }
     return screens.length ? screens[0].name : ""
   }
 
-  function petsForScreen(screen) {
-    return pets.filter(function(p) { return screenName(p) === screen.name })
+  function buddiesForScreen(screen) {
+    return buddies.filter(function(p) { return screenName(p) === screen.name })
   }
 
   Variants {
-    model: root.ready ? Quickshell.screens.filter(function(s) { return root.petsForScreen(s).length > 0 }) : []
+    model: root.ready ? Quickshell.screens.filter(function(s) { return root.buddiesForScreen(s).length > 0 }) : []
 
-    PetOverlay {
+    BuddyOverlay {
       required property var modelData
       screen: modelData
       service: root
-      pets: root.petsForScreen(modelData)
+      buddies: root.buddiesForScreen(modelData)
     }
   }
 }

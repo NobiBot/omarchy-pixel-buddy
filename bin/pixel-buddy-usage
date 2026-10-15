@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""pixel-pet-usage: collect Claude Code / Codex rate limits into usage records.
+"""pixel-buddy-usage: collect Claude Code / Codex rate limits into usage records.
 
-Fallback for environments without Omarchy. On Omarchy, pixel-pet reads the
+Fallback for environments without Omarchy. On Omarchy, pixel-buddy reads the
 records written by Omarchy's own `omarchy-agent-usage-update` instead and
 never runs this script.
 
 The limits logic is ported from Omarchy's `omarchy-agent-usage-claude` and
 `omarchy-agent-usage-codex` collectors (the omarchy.agents plugin), keeping
-their behavior and record contract for the fields pixel-pet reads:
+their behavior and record contract for the fields pixel-buddy reads:
   - Claude: Anthropic's OAuth usage endpoint with the Claude Code CLI's
     saved login; percent-scale detection, model-scoped windows, a short
     probe-reuse window, and last-known limits kept until their window resets.
@@ -18,8 +18,8 @@ Omarchy — https://github.com/basecamp/omarchy
 Copyright (c) David Heinemeier Hansson
 Released under the MIT License (see LICENSE in this repository).
 
-Usage: pixel-pet-usage [--force] [--out-dir DIR] [claude] [codex]
-Writes <DIR>/<agent>.json (default ~/.local/state/pixel-pet/usage).
+Usage: pixel-buddy-usage [--force] [--out-dir DIR] [claude] [codex]
+Writes <DIR>/<agent>.json (default ~/.local/state/pixel-buddy/usage).
 """
 
 from __future__ import annotations
@@ -54,11 +54,11 @@ def number(value: Any) -> int:
 
 
 def state_dir() -> Path:
-  return Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "pixel-pet" / "usage"
+  return Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "pixel-buddy" / "usage"
 
 
 def cache_root() -> Path:
-  root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "pixel-pet" / "usage"
+  root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "pixel-buddy" / "usage"
   root.mkdir(parents=True, exist_ok=True)
   return root
 
@@ -387,7 +387,7 @@ def collect_codex() -> dict[str, Any] | None:
     result["authHelpText"] = str(exc)
   else:
     try:
-      rpc_request(proc, 1, "initialize", {"clientInfo": {"name": "pixel-pet-usage", "version": "1"}}, timeout=8)
+      rpc_request(proc, 1, "initialize", {"clientInfo": {"name": "pixel-buddy-usage", "version": "1"}}, timeout=8)
       proc.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
       proc.stdin.flush()
       account_msg = rpc_request(proc, 2, "account/read", timeout=4)
@@ -440,11 +440,11 @@ def main() -> int:
     try:
       record = collectors[agent]()
     except Exception as exc:
-      print(f"pixel-pet-usage: {agent} collector failed: {exc}", file=os.sys.stderr)
+      print(f"pixel-buddy-usage: {agent} collector failed: {exc}", file=os.sys.stderr)
       status = 1
       continue
     if record is None:
-      continue  # CLI not installed: no record, the pet simply shows none
+      continue  # CLI not installed: no record, the buddy simply shows none
     write_json(out_dir / f"{agent}.json", record)
   return status
 
