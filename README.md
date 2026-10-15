@@ -8,7 +8,7 @@ The animations come from sprite packs you draw yourself, and a bar widget manage
 ## Install
 
 ```bash
-git clone https://github.com/NobiBot/omarchy-pixel-pet ~/.config/omarchy/plugins/nobi.pixel-buddy
+git clone https://github.com/NobiBot/omarchy-pixel-buddy ~/.config/omarchy/plugins/nobi.pixel-buddy
 ```
 
 Then add `{ "id": "nobi.pixel-buddy" }` to `plugins` and to `bar.layout.right` in `~/.config/omarchy/shell.json`.
