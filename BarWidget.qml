@@ -5,6 +5,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "lib/packs.mjs" as Packs
+import "lib/phrases.mjs" as Phrases
 
 // Bar icon + popup for sprite packs: browse packs, pick one per buddy, create one from the
 // Aseprite template, and edit a pack's role mapping, behavior, geometry and info.
@@ -51,6 +52,8 @@ Panel {
   property string previewAnim: ""
   property bool creating: false
   property bool confirmDelete: false
+  // The phrase field being typed in, so arrow keys and Escape go to the text (nulls itself when the field is destroyed)
+  property Item phraseField: null
   // Right-click menu on a pack thumbnail
   property string menuPack: ""
   property bool menuConfirm: false
@@ -146,14 +149,74 @@ Panel {
     })
   }
 
+  // Work-status lines, labelled like the Roles tab's work states
+  readonly property var workLabels: Packs.ROLES.filter(function(r) { return r.group === "work" }).map(function(r) { return r.label })
+
+  readonly property bool customPhrases: !!root.view && Array.isArray(root.view.pack.phrases)
+  readonly property var phrases: root.view && root.service ? root.service.packPhrases(root.view.pack) : []
+
+  // One edit to a list of lines: i < 0 adds `change.text`; change null removes line i;
+  // otherwise change.text and/or change.chance (null = share the rest) replace line i's.
+  function changedLines(lines, i, change) {
+    var out = (lines || []).slice()
+    if (i < 0) out.push(change.text)
+    else if (change === null) out.splice(i, 1)
+    else out[i] = Phrases.makeLine(change.text !== undefined ? change.text : Phrases.lineText(out[i]),
+                                   change.chance !== undefined ? change.chance : Phrases.lineChance(out[i]))
+    return out
+  }
+
+  // Writes the selected pack's work-status lines. The first edit copies the config's lines into the pack.
+  function setPhrase(state, i, change) {
+    var src = phrases
+    var texts = workLabels.map(function(_, k) { return k === state ? root.changedLines(src[k], i, change) : (src[k] || []).slice() })
+    updatePack(function(pj) { pj.phrases = texts })
+  }
+
+  // Lines for animations, by tag name; a pack lists every animation it has, custom names included
+  readonly property var animPhrases: root.view && root.service ? root.service.packAnimPhrases(root.view.pack) : ({})
+
+  function setAnimPhrase(name, i, change) {
+    var lines = changedLines(animPhrases[name], i, change)
+    updatePack(function(pj) {
+      var all = Object.assign({}, root.service.packAnimPhrases(pj))
+      if (lines.length) all[name] = lines
+      else delete all[name]
+      if (Object.keys(all).length) pj.animPhrases = all
+      else delete pj.animPhrases
+    })
+  }
+
+  // Which roles an animation plays as, for the Phrases tab ("random actions, click reactions")
+  function animRoles(name) {
+    if (!view) return ""
+    return Packs.ROLES.filter(function(r) { return view.resolved.roles[r.key].indexOf(name) >= 0 })
+      .map(function(r) { return r.label }).join(", ")
+  }
+
+  // Sections of the Phrases tab: the six work states, then each animation. Rebuilt only when the
+  // animation names change (not on every save), so a field keeps its focus while you add lines.
+  readonly property string phraseAnimKey: view ? view.names.join("\n") : ""
+  readonly property var phraseSections: {
+    var out = workLabels.map(function(l, k) { return { kind: "work", key: k, title: l.toUpperCase(), first: k === 0 } })
+    var names = phraseAnimKey ? phraseAnimKey.split("\n") : []
+    names.forEach(function(n, i) { out.push({ kind: "anim", key: n, title: n, first: i === 0 }) })
+    return out
+  }
+
+  function setSectionLine(section, i, change) {
+    if (section.kind === "work") setPhrase(section.key, i, change)
+    else setAnimPhrase(section.key, i, change)
+  }
+
   function edit(t) {
     mode = "edit"
-    tab = ["roles", "behavior", "geometry", "info"].indexOf(t) >= 0 ? t : "roles"
+    tab = ["roles", "behavior", "geometry", "phrases", "info"].indexOf(t) >= 0 ? t : "roles"
     confirmDelete = false
     flick.contentY = 0
   }
 
-  // omarchy-shell pixel-buddy-studio toggle | open | close | edit [roles|behavior|geometry|info]
+  // omarchy-shell pixel-buddy-studio toggle | open | close | edit [roles|behavior|geometry|info|phrases]
   IpcHandler {
     target: root.ipcTarget
     function open(): void { root.open() }
@@ -220,7 +283,7 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: newName.activeFocus || nameField.activeFocus || authorField.activeFocus
+      blocked: newName.activeFocus || nameField.activeFocus || authorField.activeFocus || (root.phraseField !== null && root.phraseField.activeFocus)
 
       onMoveRequested: function(dx, dy) {
         if (dx !== 0) root.stepRole(dx)
@@ -228,7 +291,7 @@ Panel {
       }
       onCloseRequested: {
         if (root.menuPack !== "") root.menuPack = ""
-        else if (root.mode === "edit") root.mode = "home"
+        else if (root.mode !== "home") root.mode = "home"
         else root.close()
       }
       onTabRequested: function(direction) { root.switchPanel(direction) }
@@ -267,7 +330,7 @@ Panel {
 
             Button {
               id: backBtn
-              visible: root.mode === "edit"
+              visible: root.mode !== "home"
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
               text: "‹ Packs"
@@ -278,8 +341,8 @@ Panel {
 
             Text {
               id: titleText
-              anchors.left: root.mode === "edit" ? backBtn.right : parent.left
-              anchors.leftMargin: root.mode === "edit" ? Style.spacing.lg : 0
+              anchors.left: root.mode !== "home" ? backBtn.right : parent.left
+              anchors.leftMargin: root.mode !== "home" ? Style.spacing.lg : 0
               anchors.right: buddyPicker.left
               anchors.verticalCenter: parent.verticalCenter
               text: root.mode === "edit" && root.view ? root.view.entry.name : "Pixel Buddy"
@@ -612,6 +675,7 @@ Panel {
                 tooltipText: "Open this pack's .aseprite file; saving it rebuilds the pack"
                 onClicked: root.service.openInAseprite(root.packId)
               }
+              Button { text: "Phrases"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "What the buddy says with this pack while Claude Code or Codex works"; onClicked: root.edit("phrases") }
               Button { text: "Rebuild"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Export the pack again from its source files"; onClicked: root.service.rebuildPack(root.packId) }
               Button { text: "Folder"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Open this pack's folder (packs/ in the plugin)"; onClicked: root.service.openPackFolder(root.packId) }
             }
@@ -625,8 +689,11 @@ Panel {
 
             ButtonGroup {
               width: parent.width
+              // Five tabs: smaller chips so they fit the popup's width
+              fontSize: Style.font.bodySmall
+              spacing: Style.spacing.sm
               options: [{ value: "roles", label: "Roles" }, { value: "behavior", label: "Behavior" },
-                        { value: "geometry", label: "Geometry" }, { value: "info", label: "Info" }]
+                        { value: "geometry", label: "Geometry" }, { value: "phrases", label: "Phrases" }, { value: "info", label: "Info" }]
               value: root.tab
               onChanged: function(v) {
                 root.tab = v
@@ -994,6 +1061,164 @@ Panel {
                 onClicked: {
                   root.service.openGeometryEditor(root.packId)
                   root.close()
+                }
+              }
+            }
+
+            // ---------- Phrases
+            Column {
+              visible: root.tab === "phrases"
+              width: parent.width
+              spacing: Style.spacing.md
+
+              Repeater {
+                model: root.phraseSections
+
+                Column {
+                  id: section
+                  required property var modelData
+                  readonly property bool work: modelData.kind === "work"
+                  readonly property var lines: (work ? root.phrases[modelData.key] : root.animPhrases[modelData.key]) || []
+                  readonly property string roles: work ? "" : root.animRoles(modelData.key)
+                  readonly property var chances: Phrases.chances(lines)
+                  readonly property real silence: lines.length ? Phrases.silence(lines) : 0
+                  width: parent.width
+                  spacing: Style.spacing.sm
+
+                  // Group heading before the first work state and the first animation
+                  Text {
+                    visible: section.modelData.first
+                    width: parent.width
+                    topPadding: section.work ? 0 : Style.spacing.lg
+                    text: section.work ? "Work status" : "Animations"
+                    color: root.fg
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.body
+                    font.bold: true
+                  }
+                  Text {
+                    visible: section.modelData.first
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: section.work
+                      ? "The bubble's line while Claude Code or Codex works. Each time the state changes the buddy picks a line by its % chance; with none, it shows no bubble." + (root.customPhrases ? "" : " This pack uses the config's lines until you edit one.") + " ▶ shows a line on " + root.buddyName + "."
+                      : "Every animation in this pack, by its tag name. Give one a few lines and each time it starts playing the buddy says one, picked by its % chance. Lines on idle or walk come up often, so give those a low %. A work status, murmur or chat in the bubble takes priority."
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+                  Button {
+                    visible: section.work && section.modelData.first && root.customPhrases
+                    text: "Reset to defaults"
+                    bordered: true
+                    fontSize: Style.font.bodySmall
+                    tooltipText: "Forget this pack's work-status lines and use workStatusTexts from the config again"
+                    onClicked: root.updatePack(function(pj) { delete pj.phrases })
+                  }
+
+                  PanelSectionHeader {
+                    width: parent.width
+                    topPadding: Style.spacing.md
+                    text: section.modelData.title
+                    foreground: root.fg
+                    fontFamily: root.fontFamily
+                  }
+                  Text {
+                    visible: section.roles !== ""
+                    width: parent.width
+                    elide: Text.ElideRight
+                    text: "plays as: " + section.roles
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+                  Text {
+                    visible: section.silence >= 0.5
+                    width: parent.width
+                    text: "says nothing " + Math.round(section.silence) + "% of the time"
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+
+                  Repeater {
+                    model: section.lines
+
+                    // The line on top, its chance and buttons right-aligned below
+                    Column {
+                      id: lineRow
+                      required property var modelData
+                      required property int index
+                      readonly property string text: Phrases.lineText(modelData)
+                      readonly property var chance: Phrases.lineChance(modelData)
+                      width: section.width
+                      spacing: Style.spacing.xs
+
+                      TextField {
+                        width: parent.width
+                        text: lineRow.text
+                        // An emptied field removes the line
+                        onEditingFinished: if (text.trim() !== lineRow.text)
+                          root.setSectionLine(section.modelData, lineRow.index, text.trim() ? { text: text.trim() } : null)
+                        onActiveFocusChanged: if (activeFocus) root.phraseField = this
+                      }
+                      Item {
+                        width: parent.width
+                        height: lineControls.height
+                        Row {
+                          id: lineControls
+                          anchors.right: parent.right
+                          spacing: Style.spacing.sm
+                          Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: lineRow.chance !== null ? "chance %" : "chance % (auto)"
+                            color: root.dim
+                            font.family: root.fontFamily
+                            font.pixelSize: Style.font.caption
+                          }
+                          Button {
+                            visible: lineRow.chance !== null
+                            text: "↺"
+                            fontSize: Style.font.bodySmall
+                            tooltipText: "Back to auto: share what the other lines leave"
+                            onClicked: root.setSectionLine(section.modelData, lineRow.index, { chance: null })
+                          }
+                          // Lines left on auto share what the others leave of 100%
+                          NumberField {
+                            fieldWidth: Style.space(72)
+                            fontSize: Style.font.bodySmall
+                            from: 0; to: 100
+                            value: Math.round(section.chances[lineRow.index] || 0)
+                            onModified: function(v) { root.setSectionLine(section.modelData, lineRow.index, { chance: v }) }
+                          }
+                          Button {
+                            text: "▶"
+                            bordered: true
+                            fontSize: Style.font.bodySmall
+                            tooltipText: "Show this line on the buddy"
+                            onClicked: root.service.speak(root.buddyId, lineRow.text, "", "preview")
+                          }
+                          Button {
+                            text: "×"
+                            bordered: true
+                            fontSize: Style.font.bodySmall
+                            tooltipText: "Remove this line"
+                            onClicked: root.setSectionLine(section.modelData, lineRow.index, null)
+                          }
+                        }
+                      }
+                    }
+                  }
+
+                  TextField {
+                    width: parent.width
+                    placeholderText: "+ add a line, Enter to save"
+                    onAccepted: if (text.trim()) {
+                      root.setSectionLine(section.modelData, -1, { text: text.trim() })
+                      text = ""
+                    }
+                    onActiveFocusChanged: if (activeFocus) root.phraseField = this
+                  }
                 }
               }
             }

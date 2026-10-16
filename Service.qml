@@ -188,8 +188,23 @@ Scope {
       facing: geo.facing,
       size: Math.round(size),
       sprite: { playSec: playSec, minPlaySec: minPlay },
+      phrases: packPhrases(view ? view.pack : null),
+      animPhrases: packAnimPhrases(view ? view.pack : null),
       urlFor: function(name) { return root.animUrl(packId, name) }
     }
+  }
+
+  // Work-status bubble lines (6 lists, see lib/work-status.mjs STATES): the pack's own `phrases`
+  // from the bar widget's Phrases tab, else config.workStatusTexts. Returns the stored array itself,
+  // so a buddy only picks a new line when the phrases really change.
+  function packPhrases(packJson) {
+    return packJson && Array.isArray(packJson.phrases) ? packJson.phrases : (config.workStatusTexts || [])
+  }
+
+  // Lines said when an animation starts: { animation name: [lines] } from the Phrases tab
+  function packAnimPhrases(packJson) {
+    var p = packJson ? packJson.animPhrases : null
+    return p && typeof p === "object" && !Array.isArray(p) ? p : ({})
   }
 
   function rebuildRuntimes() {

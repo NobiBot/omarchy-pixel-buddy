@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import "lib/shared.mjs" as Shared
 import "lib/work-status.mjs" as WS
+import "lib/phrases.mjs" as Phrases
 
 // One buddy. Coordinates mean the same as in dsh-pet: (x, y) = top-left of the 16:9 animation box, box width = size;
 // the picture is shifted down by bottomPad so the feet touch the box bottom, so box bottom = ground.
@@ -80,6 +81,7 @@ Item {
   function play(name, nextOnce, role) {
     if (!name) return
     playRole = role || ""
+    sayAnimLine(name)
     log("play " + name + (nextOnce ? "" : " (loop)"))
     once = nextOnce
     var f = imgAt(front)
@@ -694,11 +696,21 @@ Item {
   property var wsBubble: null
   property var tempBubble: null
 
-  function showBubble(text, meme, ms) {
-    tempBubble = { text: text, meme: meme || "" }
+  // `anim` = a line from the pack's animPhrases, which the next animation's line may replace
+  function showBubble(text, meme, ms, anim) {
+    tempBubble = { text: text, meme: meme || "", anim: !!anim }
     if (ms > 0) bubbleTimer.interval = ms
     if (ms > 0) bubbleTimer.restart()
     else bubbleTimer.stop()
+  }
+
+  // A random line for the animation that just started, if the pack has any. An agent's work
+  // status, a murmur, chat or usage in the bubble wins over it.
+  function sayAnimLine(name) {
+    var lines = (rt.animPhrases || {})[name]
+    if (!lines || !lines.length || wsBubble || (tempBubble && !tempBubble.anim)) return
+    var line = Phrases.pickLine(lines)
+    if (line) showBubble(line, "", 4000, true)
   }
 
   Timer {
@@ -788,10 +800,10 @@ Item {
     var sig = ws.key + "|" + ws.state
     var changed = sig !== wsSig
     wsSig = sig
-    if (changed || wsTexts !== service.config.workStatusTexts) {
-      wsTexts = service.config.workStatusTexts
-      var texts = service.config.workStatusTexts || []
-      wsLine = texts[idx] && texts[idx].length ? texts[idx][Math.floor(Math.random() * texts[idx].length)] : ""
+    if (changed || wsTexts !== rt.phrases) {
+      wsTexts = rt.phrases
+      var texts = rt.phrases || []
+      wsLine = Phrases.pickLine(texts[idx] || [])
     }
 
     // Bubble: agent · project / step summary (when enabled and available) or level text / tool · command summary (when workStatusDetail is on)
@@ -821,6 +833,10 @@ Item {
 
   // A new pack (or a rebuild of this one) changes every URL: drop the current animation and
   // start from idle, or from the work-status animation if an agent is busy.
+  // Phrases edited in the bar widget (or a switch to a pack with its own): pick a new line now
+  readonly property var phrases: rt.phrases
+  onPhrasesChanged: if (service.workStatus) applyWorkStatus()
+
   readonly property string rtKey: rt.packId + "@" + rt.version
   property string shownKey: ""
 

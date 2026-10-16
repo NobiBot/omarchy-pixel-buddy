@@ -68,6 +68,18 @@ shows the buddy.
 - **Geometry:** which way the art faces, the on-screen size, and **Open geometry editor**: drag
   the feet line and the hitbox (click/drag area; the speech bubble sits on its top edge) over a
   zoomed frame. The buddy follows live, and Save writes `pack.json`.
+- **Phrases** (also a button on Home for the selected pack): what a buddy using this pack says in
+  its speech bubble for each work state (thinking, working, reviewing, waiting for you, success,
+  error), so each sprite can have its own voice. Edit a line and press Enter, add one in the
+  "+ add a line" field, × removes it, ▶ shows it on the buddy. Each time the state changes a line
+  is picked by its **chance %**; a state with no lines shows no bubble. Lines left on auto share
+  whatever % the others leave, so by default every line is equally likely. If every line has its own %
+  and they add up to less than 100, the rest of the time the buddy says nothing (the tab shows how often);
+  ↺ puts a line back on auto. A pack without its own lines uses
+  `workStatusTexts` from the config; the first edit copies those into the pack, and **Reset to defaults** goes back.
+  Below the work states, **Animations** lists every animation in the pack by its tag name, custom names
+  included. Give one some lines and each time that animation starts the buddy says one, picked by the
+  same chance %. Give lines on idle or walk a low % (a work status, murmur or chat in the bubble takes priority).
 - **Info:** name, author, files, build warnings, Duplicate, Delete (moves the pack to
   `~/.local/share/pixel-buddy/trash/`).
 
@@ -92,7 +104,14 @@ Each buddy's pack choice is stored in `~/.config/pixel-buddy/ui.json`. A buddy c
     "workStatus": ["Think", "Type", "Read", "Wait", "Yay", "Oops"],   // null = guess, "" = idle
     "balance": [null, null, null, null, "Tired", "Empty"]
   },
-  "behavior": { "playSec": { "Dance": 0 }, "speed": { "run_cycle": 30 }, "weight": { "Nap": 2 } }
+  "behavior": { "playSec": { "Dance": 0 }, "speed": { "run_cycle": 30 }, "weight": { "Nap": 2 } },
+  "phrases": [                               // work-status bubble lines, same order as workStatus; left out = the config's
+    ["Hmm…"], ["On it!"], ["Checking…"], ["Your turn!"], ["Done!"], ["Oops."]
+  ],
+  "animPhrases": {                           // said when that animation starts
+    "Nap": ["zzz…", "five more minutes"],    // no chance = share what's left of 100%
+    "Stand": [{ "text": "Nice day.", "chance": 5 }]   // 5% of the time; silent the other 95%
+  }
 }
 ```
 
@@ -161,7 +180,7 @@ omarchy-shell pixel-buddy usage | whisper | toggle | reload | state
 omarchy-shell pixel-buddy packs                 # list packs as JSON
 omarchy-shell pixel-buddy usePack mochi         # all buddies; or main=mochi for one buddy
 omarchy-shell pixel-buddy buildPack mochi | editGeometry mochi
-omarchy-shell pixel-buddy-studio toggle | edit roles   # the bar popup (bind it to a key if you like)
+omarchy-shell pixel-buddy-studio toggle | edit roles | edit phrases   # the bar popup (bind it to a key if you like)
 ```
 
 ## Credits
