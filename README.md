@@ -12,7 +12,7 @@ git clone https://github.com/NobiBot/omarchy-pixel-buddy ~/.config/omarchy/plugi
 ```
 
 Then add `{ "id": "nobi.pixel-buddy" }` to `plugins` and to `bar.layout.right` in `~/.config/omarchy/shell.json`.
-On first start the buddy creates `packs/` and a Default pack from `templates/buddy.aseprite`.
+On first start the buddy creates `packs/` and the default pack, Goop, from `templates/buddy.aseprite` and `templates/pack.json`.
 Needs `jq`, `socat`, `notify-send`, `inotify-tools`, `python-pillow` and `qt6-imageformats`.
 After changing the plugin's QML yourself, run `omarchy restart shell`.
 
@@ -21,8 +21,9 @@ After changing the plugin's QML yourself, run `omarchy restart shell`.
 Every buddy design is a **pack**: a folder in `packs/` holding the art plus an optional `pack.json`.
 `packs/` is a symlink to `~/.local/share/pixel-buddy/packs/`. Omarchy reloads every plugin when a file
 inside `~/.config/omarchy/plugins/` changes, and the symlink keeps pack edits and rebuilds from
-triggering that. The original slime is the `default` pack (`templates/buddy.aseprite` recreates it on a fresh
-install); duplicate it from its right-click menu if you want to start from the slime.
+triggering that. Goop, the slime, is the `default` pack (`templates/buddy.aseprite` and `templates/pack.json`,
+with its geometry and phrases, recreate it on a fresh install); duplicate it from its right-click menu
+if you want to start from the slime.
 
 A pack can mix these formats:
 

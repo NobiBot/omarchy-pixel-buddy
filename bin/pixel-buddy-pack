@@ -50,6 +50,8 @@ BUILDS = os.path.join(CACHE, "packs")
 INDEX = os.path.join(CACHE, "index.json")
 LINK = os.path.join(PLUGIN, "packs")
 TEMPLATE = os.path.join(PLUGIN, "templates", "buddy.aseprite")
+# The default pack's settings (name, geometry, phrases), copied with the template on first start
+TEMPLATE_PACK = os.path.join(PLUGIN, "templates", "pack.json")
 SOURCE_EXT = {".aseprite": "aseprite", ".ase": "aseprite", ".png": "sheet", ".gif": "gif", ".webp": "webp"}
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
@@ -482,7 +484,10 @@ def cmd_init(quiet=False):
         d = os.path.join(DATA, "default")
         os.makedirs(d)
         shutil.copy2(TEMPLATE, os.path.join(d, "buddy.aseprite"))
-        write_json(os.path.join(d, "pack.json"), {"name": "Default"})
+        if os.path.isfile(TEMPLATE_PACK):
+            shutil.copy2(TEMPLATE_PACK, os.path.join(d, "pack.json"))
+        else:
+            write_json(os.path.join(d, "pack.json"), {"name": "Default"})
         log("created the default pack from the template")
     elif not quiet:
         log("packs: %s" % ", ".join(pack_ids()) or "none")

@@ -1,0 +1,57 @@
+{
+  "name": "Goop",
+  "author": "nobi",
+  "scale": 2,
+  "hitBox": [
+    43,
+    34,
+    88,
+    66
+  ],
+  "feetY": 63,
+  "facing": "left",
+  "phrases": [
+    [
+      "Thinking about the next step",
+      "Let me sort out my thoughts~",
+      "Planning what to do next"
+    ],
+    [
+      "I'm WORKING!!!!",
+      "This step is in progress",
+      "Still busy, don't disturb me~"
+    ],
+    [
+      "That step's done, on to the next",
+      "One step down, let's keep going~"
+    ],
+    [
+      "Need you to confirm something",
+      "Please take a look here",
+      "Your turn to decide, I'll wait~"
+    ],
+    [
+      "All done this round, great job!",
+      "Task complete, time to slack off~"
+    ],
+    [
+      "That step didn't quite work",
+      "Ran into a little problem",
+      "Got stuck here, waiting for you"
+    ]
+  ],
+  "animPhrases": {
+    "walk": [
+      {
+        "text": "What's over here?",
+        "chance": 30
+      }
+    ],
+    "drag": [
+      {
+        "text": "Weeeeeee!!!!",
+        "chance": 90
+      }
+    ]
+  }
+}
