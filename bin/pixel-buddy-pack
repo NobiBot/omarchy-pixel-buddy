@@ -155,7 +155,11 @@ def sources(pid):
 def stamp(pid):
     d = pack_dir(pid)
     parts = [VERSION]
-    for s in sources(pid):
+    srcs = sources(pid)
+    # Rebuild when Aseprite comes or goes, so frames kept from an unreadable file get replaced
+    if any(s["format"] == "aseprite" for s in srcs):
+        parts.append(["aseprite", bool(find_aseprite())])
+    for s in srcs:
         stem = os.path.splitext(s["file"])[0]
         for f in (s["file"], stem + ".json"):
             p = os.path.join(d, f)
@@ -307,6 +311,11 @@ def build_pack(pid, force=False):
         except (OSError, ValueError):
             pass
     errors, warnings, anims, origin = [], [], {}, {}
+    failed = set()  # source files that couldn't be read; their last built frames are kept
+    try:
+        prev = read_json(man_path)
+    except (OSError, ValueError):
+        prev = {}
     ase = None
     with tempfile.TemporaryDirectory(prefix="pixel-buddy-") as tmp:
         for s in sources(pid):
@@ -321,9 +330,11 @@ def build_pack(pid, force=False):
                     loaded = load_animated(path)
             except PackError as e:
                 errors.append(str(e))
+                failed.add(s["file"])
                 continue
             except Exception as e:  # a broken file must not stop the rest of the pack
                 errors.append("%s: %s" % (s["file"], e))
+                failed.add(s["file"])
                 continue
             for name, anim in loaded.items():
                 if name in anims:
@@ -376,7 +387,24 @@ def build_pack(pid, force=False):
             manifest["animations"][name] = {"ms": sum(durations), "frames": len(padded), "bounds": bounds,
                                             "source": origin[name], "hash": digest.hexdigest()[:16],
                                             "file": anim_file(name)}
-    elif not errors:
+    # Keep the last build of animations from files that couldn't be read this time (say Aseprite
+    # was uninstalled), as long as the canvas is unchanged, instead of dropping them
+    kept = {n: a for n, a in (prev.get("animations") or {}).items()
+            if a.get("source") in failed and n not in manifest["animations"]}
+    if kept and manifest["canvas"] in (None, prev.get("canvas")):
+        manifest["canvas"] = prev.get("canvas")
+        manifest["sourceCanvas"] = manifest["sourceCanvas"] or prev.get("sourceCanvas")
+        for name, a in kept.items():
+            old = os.path.join(out_dir, prev.get("webpDir") or "webp", a["file"])
+            if os.path.isfile(old):
+                shutil.copy2(old, os.path.join(staging, webp_dir, a["file"]))
+                manifest["animations"][name] = a
+        files = sorted({a["source"] for a in kept.values()})
+        warnings.append("kept the last build of %s until it can be read again" % ", ".join(files))
+    elif kept:
+        warnings.append("the canvas size changed, so the last build of %s couldn't be kept"
+                        % ", ".join(sorted({a["source"] for a in kept.values()})))
+    if not manifest["animations"] and not errors:
         errors.append("no animations found; add a .aseprite, .png, .gif or .webp file")
     old_pic = os.path.join(out_dir, "pic")
     if os.path.isdir(old_pic):
