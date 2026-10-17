@@ -3,6 +3,7 @@ import Quickshell
 import "lib/shared.mjs" as Shared
 import "lib/work-status.mjs" as WS
 import "lib/phrases.mjs" as Phrases
+import "lib/packs.mjs" as Packs
 
 // One buddy. Coordinates mean the same as in dsh-pet: (x, y) = top-left of the 16:9 animation box, box width = size;
 // the picture is shifted down by bottomPad so the feet touch the box bottom, so box bottom = ground.
@@ -17,7 +18,6 @@ Item {
   // Everything that comes from this buddy's sprite pack: animations, timing, geometry (Service.makeRuntime)
   readonly property var rt: service.runtimes[cfg.id] || service.emptyRuntime
   readonly property var anims: rt.anims
-  readonly property var weights: rt.weights
   readonly property var physics: Object.assign({}, Shared.DEFAULT_PHYSICS, service.config.physics || {})
   readonly property real fps: rt.fps
 
@@ -196,17 +196,18 @@ Item {
       playIdle()
       return
     }
-    var roll = Math.random()
-    var k = Shared.rollKind(roll, weights, { fixed: cfg.fixedEnabled === true })
-    if (k === "idle") {
-      play(Shared.pick(anims.idle, anim), true, "idle")
-    } else if (k === "turn") {
-      play(Shared.pick(anims.turn, anim), true, "turn")
-    } else if (k === "move" && !moveBusy() && tryMove("") !== false) {
-      // Move started
+    // A buddy fixed in place doesn't walk or turn; the other chances grow to fill their share
+    var next = Packs.pickChain(rt.chain, cfg.fixedEnabled === true ? ["move", "turn"] : [])
+    if (!next) {
+      playIdle()
+    } else if (next.kind === "idle") {
+      play(next.name, true, "idle")
+    } else if (next.kind === "turn") {
+      play(next.name, true, "turn")
+    } else if (next.kind === "move") {
+      if (moveBusy() || tryMove(next.name) === false) playIdle()
     } else {
-      var act = Shared.pickCategoryAction(anims.categories, anims.idle, facing, anim)
-      play(act.name, true, act.id === "FALLBACK" ? "idle" : "")
+      play(next.name, true, "")
     }
   }
 

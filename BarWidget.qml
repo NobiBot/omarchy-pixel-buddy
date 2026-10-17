@@ -149,6 +149,16 @@ Panel {
     })
   }
 
+  // The selected pack's random chain: { name: { kind, chance, set } } for the Behavior tab's chance fields
+  readonly property var chain: {
+    var out = {}
+    if (!root.view || !root.service) return out
+    var roles = root.view.resolved.roles
+    Packs.chainChances(roles, root.view.pack.behavior, Packs.buildWeights(root.service.config.animationWeights, roles))
+      .forEach(function(e) { out[e.name] = e })
+    return out
+  }
+
   // Work-status lines, labelled like the Roles tab's work states
   readonly property var workLabels: Packs.ROLES.filter(function(r) { return r.group === "work" }).map(function(r) { return r.label })
 
@@ -874,7 +884,7 @@ Panel {
               Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "How long each animation keeps looping when it plays, in seconds (0 = play once). Walks loop for the whole trip."
+                text: "How long each animation keeps looping when it plays, in seconds (0 = play once). Walks loop for the whole trip. Between work events the buddy picks idle, walk, turn and random-action animations by their % chance; ones on auto share what the others leave."
                 color: root.dim
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -909,6 +919,7 @@ Panel {
                   readonly property var beh: root.view ? (root.view.pack.behavior || {}) : {}
                   readonly property bool isWalk: root.view ? root.view.resolved.roles.walk.indexOf(modelData) >= 0 : false
                   readonly property bool isAction: root.view ? root.view.resolved.roles.actions.indexOf(modelData) >= 0 : false
+                  readonly property var chainEntry: root.chain[modelData] || null
                   readonly property var playSec: beh.playSec || {}
                   readonly property bool hasPlay: playSec[modelData] !== undefined
                   readonly property var ms: root.view && root.view.entry.animations[modelData] ? root.view.entry.animations[modelData].ms : 0
@@ -931,7 +942,7 @@ Panel {
                         font.pixelSize: Style.font.body
                       }
                       Text {
-                        text: (animRow.ms / 1000).toFixed(1) + " s per loop" + (animRow.isWalk ? " · walk" : animRow.isAction ? " · random action" : "")
+                        text: "animation loop length " + (animRow.ms / 1000).toFixed(1) + " s" + (animRow.isWalk ? " · walk" : animRow.isAction ? " · random action" : "")
                         color: root.dim
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
@@ -960,12 +971,12 @@ Panel {
                   }
 
                   Item {
-                    visible: animRow.isWalk || animRow.isAction
+                    visible: animRow.isWalk
                     width: parent.width
                     height: extraField.height
                     Text {
                       anchors.verticalCenter: parent.verticalCenter
-                      text: animRow.isWalk ? "walk speed, canvas px per second" : "how often, compared to other actions"
+                      text: "walk speed, canvas px per second"
                       color: root.dim
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.bodySmall
@@ -974,11 +985,41 @@ Panel {
                       id: extraField
                       anchors.right: parent.right
                       fieldWidth: Style.space(96)
-                      from: 1; to: animRow.isWalk ? 400 : 10
-                      value: animRow.isWalk
-                        ? Number((animRow.beh.speed || {})[animRow.modelData]) || Number(((root.service.config.animations || {}).moves || {}).default.speed) || 24
-                        : Number((animRow.beh.weight || {})[animRow.modelData]) || 1
-                      onModified: function(v) { root.setBehavior(animRow.isWalk ? "speed" : "weight", animRow.modelData, v) }
+                      from: 1; to: 400
+                      value: Number((animRow.beh.speed || {})[animRow.modelData]) || Number(((root.service.config.animations || {}).moves || {}).default.speed) || 24
+                      onModified: function(v) { root.setBehavior("speed", animRow.modelData, v) }
+                    }
+                  }
+
+                  // How often the random chain picks this animation; auto ones share what the others leave
+                  Item {
+                    visible: animRow.chainEntry !== null
+                    width: parent.width
+                    height: chanceField.height
+                    Text {
+                      anchors.verticalCenter: parent.verticalCenter
+                      text: animRow.chainEntry && animRow.chainEntry.set ? "animation chance %" : "animation chance % (auto)"
+                      color: root.dim
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+                    Row {
+                      anchors.right: parent.right
+                      anchors.verticalCenter: parent.verticalCenter
+                      spacing: Style.spacing.sm
+                      Button {
+                        visible: !!animRow.chainEntry && animRow.chainEntry.set
+                        text: "↺"
+                        tooltipText: "Back to auto: share what the other animations leave"
+                        onClicked: root.setBehavior("chance", animRow.modelData, null)
+                      }
+                      NumberField {
+                        id: chanceField
+                        fieldWidth: Style.space(96)
+                        from: 0; to: 100
+                        value: animRow.chainEntry ? Math.round(animRow.chainEntry.chance) : 0
+                        onModified: function(v) { root.setBehavior("chance", animRow.modelData, v) }
+                      }
                     }
                   }
                 }

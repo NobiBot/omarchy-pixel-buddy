@@ -40,7 +40,9 @@ builder pads it to 16:9 and keeps the feet on the bottom edge.
 ### Walking
 
 The buddy walks on its own: every time an animation ends it picks what to do next, by default idle 55%,
-turn 15%, walk 15%, random action 15% (`animationWeights` in the config). A walk plays an animation
+turn 15%, walk 15%, random action 15% (`animationWeights` in the config), split evenly between the
+animations in each role. The Behavior tab gives each idle, walk, turn and random-action animation its
+own **chance %**; ones left on auto share what the others leave, in the same proportions. A walk plays an animation
 from the **walk** role (one walk cycle is enough; it loops for the whole trip) while the buddy slides
 across the screen at the pack's walk speed (Behavior tab, canvas pixels per second). It walks the way
 it faces. With a **turn** animation it turns around now and then; without one it picks a direction
@@ -65,7 +67,8 @@ shows the buddy.
   "Think" → thinking). Dropdowns fix the rest. Roles with several animations pick one at random.
   A role with nothing mapped is skipped: the buddy just carries on (a work state still shows in the bubble). **Guess again** forgets your choices. Your source files
   are never renamed: the mapping is stored in `pack.json`.
-- **Behavior:** how long each animation loops, walk speed, and how often each random action plays.
+- **Behavior:** how long each animation loops, walk speed, and the chance % of each idle, walk, turn and
+  random action being picked next (like a phrase's chance; ↺ puts one back on auto).
 - **Geometry:** which way the art faces, the on-screen size, and **Open geometry editor**: drag
   the feet line and the hitbox (click/drag area; the speech bubble sits on its top edge) over a
   zoomed frame. The buddy follows live, and Save writes `pack.json`.
@@ -105,7 +108,7 @@ Each buddy's pack choice is stored in `~/.config/pixel-buddy/ui.json`. A buddy c
     "workStatus": ["Think", "Type", "Read", "Wait", "Yay", "Oops"],   // null = guess, "" = idle
     "balance": [null, null, null, null, "Tired", "Empty"]
   },
-  "behavior": { "playSec": { "Dance": 0 }, "speed": { "run_cycle": 30 }, "weight": { "Nap": 2 } },
+  "behavior": { "playSec": { "Dance": 0 }, "speed": { "run_cycle": 30 }, "chance": { "Nap": 5 } },  // chance: % picked next, left out = auto
   "phrases": [                               // work-status bubble lines, same order as workStatus; left out = the config's
     ["Hmm…"], ["On it!"], ["Checking…"], ["Your turn!"], ["Done!"], ["Oops."]
   ],

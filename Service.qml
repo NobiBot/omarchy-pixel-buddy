@@ -171,7 +171,8 @@ Scope {
       packId: packId,
       version: view ? (view.entry.builtAt || 0) : 0,
       anims: Packs.buildAnimations(base, roles, beh),
-      weights: Packs.buildWeights(config.animationWeights, roles),
+      // What the random chain plays next, by each animation's chance (Behavior tab)
+      chain: Packs.chainChances(roles, beh, Packs.buildWeights(config.animationWeights, roles)),
       durations: durations,
       fps: Number(sp.fps) || 10,
       canvasW: geo.width,
