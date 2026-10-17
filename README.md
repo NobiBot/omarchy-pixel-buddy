@@ -7,7 +7,8 @@ naps, reacts when you poke it, and acts out what Claude Code and Codex are doing
 terminal and still know when it's your turn.
 
 Every buddy is a **sprite pack you draw yourself**, and a bar widget manages them. No pixel-art experience needed:
-there's a [step-by-step guide](docs/quick-setup.md) and a built-in pixel editor.
+there's a [step-by-step guide](docs/quick-setup.md). Draw in a real art program such as Aseprite or LibreSprite;
+there's also a built-in pixel editor, but it's very barebones and experimental.
 
 <img src="https://img.shields.io/badge/omarchy-plugin-7aa2f7" alt="Omarchy plugin"> <img src="https://img.shields.io/badge/works%20with-Claude%20Code%20%2B%20Codex-d97757" alt="Claude Code + Codex"> <img src="https://img.shields.io/badge/version-0.2.0-4c9a2a" alt="version 0.2.0"> <img src="https://img.shields.io/badge/license-MIT-007ec6" alt="MIT license">
 
@@ -28,7 +29,7 @@ there's a [step-by-step guide](docs/quick-setup.md) and a built-in pixel editor.
   </tr>
   <tr>
     <td align="center" width="170"><img src="docs/img/goop-sleep.gif" width="150"></td>
-    <td><b>Your art, live.</b> Draw in Aseprite or the built-in editor, hit save, and the buddy changes about a second later. Name animations however you like; the widget figures out what each one is for.</td>
+    <td><b>Your art, live.</b> Draw in Aseprite (or another art program), hit save, and the buddy changes about a second later. Name animations however you like; the widget figures out what each one is for.</td>
   </tr>
   <tr>
     <td align="center" width="170"><img src="docs/img/goop-work-success.gif" width="150"></td>
@@ -73,7 +74,8 @@ state `~/.local/state/pixel-buddy/`, IPC `omarchy-shell pixel-buddy …`), so it
 3. Save (**Ctrl+S**). About a second later it's on your desktop.
 
 That one `idle` animation is enough to start. The **[quick setup guide](docs/quick-setup.md)** covers the rest:
-frames, tags, the feet line, and adding walks and reactions. No Aseprite? Use **Edit pack → Draw**.
+frames, tags, the feet line, and adding walks and reactions. No Aseprite? Any editor that exports GIF or a PNG strip works, such as
+[LibreSprite](https://libresprite.github.io/) (free); see [Other editors](docs/quick-setup.md#other-editors).
 
 ## 4. Give it a voice
 
@@ -159,7 +161,8 @@ shows the buddy.
   Below the work states, **Animations** lists every animation in the pack by its tag name, custom names
   included. Give one some lines and each time that animation starts the buddy says one, picked by the
   same chance %. Give lines on idle or walk a low % (a work status, murmur or chat in the bubble takes priority).
-- **Draw:** the built-in pixel editor, for drawing without Aseprite. It lists the pack's PNG drawings (**Open**) and makes
+- **Draw:** the built-in pixel editor. **It's very barebones and experimental**, so expect rough edges and save
+  often; for anything beyond quick touch-ups, use a real art program (Aseprite, or the free LibreSprite). It lists the pack's PNG drawings (**Open**) and makes
   new ones (**New drawing**). The editor has pencil, eraser, fill, line, box, colour picker and move tools, mirror drawing,
   a frame strip with per-frame durations, onion skin, named animations, a live preview, undo, and the pack's feet line and
   hitbox drawn on the canvas. **Save** (Ctrl+S) writes `name.png` + `name.json` (a sheet in the simple format below) and the

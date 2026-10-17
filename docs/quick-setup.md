@@ -18,9 +18,13 @@ You only need one animation (idle) to start. Add more whenever you like.
 
 ## What you need
 
-Nothing: the plugin has a **built-in pixel editor** (Edit pack → **Draw**). See [Without Aseprite](#without-aseprite).
-The steps below use **[Aseprite](https://www.aseprite.org/)**, the most capable option. It costs money (also on Steam),
-or you can install it free with `yay -S aseprite`, which builds it from its source code and takes a while.
+An art program for pixel art. The steps below use **[Aseprite](https://www.aseprite.org/)**, the most capable option.
+It costs money (also on Steam), or you can install it free with `yay -S aseprite`, which builds it from its source code
+and takes a while. For a free alternative, [LibreSprite](https://libresprite.github.io/) (`sudo pacman -S libresprite`)
+works too: see [Other editors](#other-editors).
+
+The plugin also has a **built-in pixel editor** (Edit pack → **Draw**), but it's **very barebones and experimental**.
+It's fine for a quick try or a small fix; for drawing a whole buddy, use a real art program.
 
 ## Step 1: make a pack
 
@@ -106,7 +110,11 @@ The buddy follows live; **Save** keeps it.
 
 ## Without Aseprite
 
-### The built-in pixel editor
+### The built-in pixel editor (experimental)
+
+> **Heads up:** the built-in editor is very barebones and experimental. It's missing much of what a real art program
+> has, and it may have bugs, so save often. If you plan to draw more than a few frames, use
+> [another editor](#other-editors) instead.
 
 1. **+ New** without Aseprite makes a pack with a blank 128 × 72 drawing and puts it on your buddy.
 2. Open **Edit pack → Draw** and click **Open** next to the drawing (or **New drawing**).
