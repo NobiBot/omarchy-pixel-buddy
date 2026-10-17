@@ -23,14 +23,11 @@ It costs money (also on Steam), or you can install it free with `yay -S aseprite
 and takes a while. For a free alternative, [LibreSprite](https://libresprite.github.io/) (`sudo pacman -S libresprite`)
 works too: see [Other editors](#other-editors).
 
-The plugin also has a **built-in pixel editor** (Edit pack → **Draw**), but it's **very barebones and experimental**.
-It's fine for a quick try or a small fix; for drawing a whole buddy, use a real art program.
-
 ## Step 1: make a pack
 
 Left-click the buddy icon in the bar → **+ New** → type a name.
 This makes a pack with a blank 128 × 72 canvas, switches your buddy to it and opens it in Aseprite.
-(Without Aseprite you get a blank drawing for the built-in editor instead: see [Without Aseprite](#without-aseprite).)
+(Without Aseprite you get a blank 128 × 72 `idle.png` instead: see [Without Aseprite](#without-aseprite).)
 (The buddy will be invisible until you draw something.)
 
 ## Step 2: draw the idle pose
@@ -110,30 +107,13 @@ The buddy follows live; **Save** keeps it.
 
 ## Without Aseprite
 
-### The built-in pixel editor (experimental)
-
-> **Heads up:** the built-in editor is very barebones and experimental. It's missing much of what a real art program
-> has, and it may have bugs, so save often. If you plan to draw more than a few frames, use
-> [another editor](#other-editors) instead.
-
-1. **+ New** without Aseprite makes a pack with a blank 128 × 72 drawing and puts it on your buddy.
-2. Open **Edit pack → Draw** and click **Open** next to the drawing (or **New drawing**).
-3. Draw. It works like the steps above, with these differences:
-   - **Tools** on the left: Pencil (B), Eraser (E), Fill (G), Line (L), Box (R), Pick (I), Move (V). Right-click erases; Alt-click picks a colour.
-   - **Frames** along the bottom: **+ Copy** (Alt+N) adds a copy of the frame to change a little, **+ Blank** an empty one. ←/→ step through them; the duration field sets how long a frame shows.
-   - **Animations** on the right instead of tags: **New**, **Copy**, and a name field.
-   - **Onion** (O) shows the previous frame faintly. The green **feet line** and the hitbox are drawn on the canvas, and the status line warns when a frame's lowest pixel isn't on the feet line.
-   - **Move** with "All frames" shifts a whole animation at once, which is the quick fix for one that floats or sinks.
-4. **Save** (Ctrl+S). The buddy updates a second later. **Play on buddy** shows the saved animation on the buddy.
-
-The editor saves a PNG sheet plus a `.json` file in the pack folder. It can't open `.aseprite` files.
-
 ### Other editors
 
-Any editor that exports a **GIF** or a **PNG strip** works too, for example [LibreSprite](https://libresprite.github.io/) (`sudo pacman -S libresprite`) or [Piskel](https://www.piskelapp.com/) in the browser.
+Any editor that exports a **GIF** or a **PNG strip** works, for example [LibreSprite](https://libresprite.github.io/) (`sudo pacman -S libresprite`) or [Piskel](https://www.piskelapp.com/) in the browser.
 Set the canvas to **128 × 72**, click **Folder** in the bar popup, and export into the pack's folder. The **file name becomes the animation name**:
 
 - `idle.gif` → an animation called `idle`. Easiest: most editors export GIF.
+  (A pack made with **+ New** without Aseprite starts with a blank one-frame `idle.png`: open it, draw, and add frames to the right.)
 - `walk.png` as a **strip**: all frames side by side in one row, each frame 128 × 72 (so 6 frames = a 768 × 72 image). Each frame plays for 0.1 s.
 
 The same rules apply: same canvas size, feet on the same row, facing left.

@@ -52,7 +52,7 @@ Panel {
   property string previewAnim: ""
   property bool creating: false
   property bool confirmDelete: false
-  // Shown after clicking Aseprite when it isn't installed: points to the Draw tab
+  // Shown after clicking Aseprite when it isn't installed: points to other editors
   property bool asepriteHelp: false
   // The phrase field being typed in, so arrow keys and Escape go to the text (nulls itself when the field is destroyed)
   property Item phraseField: null
@@ -224,7 +224,7 @@ Panel {
 
   function edit(t) {
     mode = "edit"
-    tab = ["roles", "behavior", "geometry", "phrases", "draw", "info"].indexOf(t) >= 0 ? t : "roles"
+    tab = ["roles", "behavior", "geometry", "phrases", "info"].indexOf(t) >= 0 ? t : "roles"
     asepriteHelp = false
     confirmDelete = false
     flick.contentY = 0
@@ -664,7 +664,7 @@ Panel {
                     root.service.setBuddyPack(root.buddyId, id, true)
                     root.showPack(id)
                     if (!root.service.asepriteInstalled)
-                      root.service.showPackMessage("Created " + name + ". Draw it in Edit pack → Draw.", false)
+                      root.service.showPackMessage("Created " + name + ". Open its Folder and draw idle.png in any pixel-art editor.", false)
                   })
                 }
               }
@@ -675,7 +675,7 @@ Panel {
               width: parent.width
               wrapMode: Text.WordWrap
               text: root.service && !root.service.asepriteInstalled
-                ? "Makes a pack with a blank 128×72 drawing and puts it on the buddy. Draw it in Edit pack → Draw (the built-in pixel editor); saving updates the buddy."
+                ? "Makes a pack with a blank 128×72 idle.png and puts it on the buddy. Draw it in any pixel-art editor (Folder opens the pack); saving updates the buddy."
                 : "Opens a blank 128×72 canvas in Aseprite with an idle tag, and puts it on the buddy. Draw, save, and the buddy updates. Add a tag per animation; the Roles tab maps them."
               color: root.dim
               font.family: root.fontFamily
@@ -722,7 +722,7 @@ Panel {
                 Text {
                   width: parent.width
                   wrapMode: Text.WordWrap
-                  text: "Aseprite isn't installed. You can draw this buddy in the built-in pixel editor instead: Edit pack → Draw."
+                  text: "Aseprite isn't installed. You can draw this buddy in another pixel-art editor such as LibreSprite (free) and export a GIF or PNG strip into the pack's folder; the file name becomes the animation name."
                   color: root.fg
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.bodySmall
@@ -730,14 +730,14 @@ Panel {
                 Text {
                   width: parent.width
                   wrapMode: Text.WordWrap
-                  text: "To install Aseprite: yay -S aseprite (it builds from source, which takes a while). The pixel editor can't open .aseprite files."
+                  text: "To install Aseprite: yay -S aseprite (it builds from source, which takes a while). LibreSprite: sudo pacman -S libresprite."
                   color: root.dim
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                 }
                 Row {
                   spacing: Style.spacing.md
-                  Button { text: "Open Draw tab"; bordered: true; selected: true; fontSize: Style.font.bodySmall; onClicked: root.edit("draw") }
+                  Button { text: "Open folder"; bordered: true; selected: true; fontSize: Style.font.bodySmall; onClicked: root.service.openPackFolder(root.packId) }
                   Button { text: "Dismiss"; bordered: true; fontSize: Style.font.bodySmall; onClicked: root.asepriteHelp = false }
                 }
               }
@@ -750,14 +750,14 @@ Panel {
             width: parent.width
             spacing: Style.space(10)
 
-            // Six tabs: smaller chips that wrap when they don't fit the popup's width
+            // Five tabs: smaller chips that wrap when they don't fit the popup's width
             Flow {
               width: parent.width
               spacing: Style.spacing.sm
               Repeater {
                 model: [{ value: "roles", label: "Roles" }, { value: "behavior", label: "Behavior" },
                         { value: "geometry", label: "Geometry" }, { value: "phrases", label: "Phrases" },
-                        { value: "draw", label: "Draw" }, { value: "info", label: "Info" }]
+                        { value: "info", label: "Info" }]
                 Button {
                   required property var modelData
                   text: modelData.label
@@ -1321,91 +1321,6 @@ Panel {
                     onActiveFocusChanged: if (activeFocus) root.phraseField = this
                   }
                 }
-              }
-            }
-
-            // ---------- Draw
-            Column {
-              id: drawTab
-              visible: root.tab === "draw"
-              width: parent.width
-              spacing: Style.spacing.lg
-
-              readonly property var drawings: root.view ? root.view.entry.sources.filter(function(s) { return s.format === "sheet" }) : []
-              readonly property var asepriteFiles: root.view ? root.view.entry.sources.filter(function(s) { return s.format === "aseprite" }) : []
-
-              Text {
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: "The built-in pixel editor: frames, onion skin, and the pack's feet line while you draw. It edits this pack's PNG drawings; saving one rebuilds the pack and the buddy updates."
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              Repeater {
-                model: drawTab.drawings
-
-                Item {
-                  id: drawingRow
-                  required property var modelData
-                  width: drawTab.width
-                  height: openBtn.height
-                  Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - openBtn.width - Style.spacing.md
-                    elide: Text.ElideMiddle
-                    text: drawingRow.modelData.file
-                    color: root.fg
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.body
-                  }
-                  Button {
-                    id: openBtn
-                    anchors.right: parent.right
-                    text: "Open"
-                    bordered: true
-                    selected: true
-                    fontSize: Style.font.bodySmall
-                    onClicked: {
-                      root.service.openSpriteEditor(root.packId, drawingRow.modelData.file)
-                      root.close()
-                    }
-                  }
-                }
-              }
-
-              Text {
-                visible: drawTab.drawings.length === 0
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: "No drawings in this pack yet."
-                color: root.fg
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.body
-              }
-
-              Button {
-                text: "New drawing"
-                bordered: true
-                fontSize: Style.font.bodySmall
-                tooltipText: "A blank drawing at this pack's canvas size, saved as a new PNG in the pack"
-                onClicked: {
-                  root.service.openSpriteEditor(root.packId, "")
-                  root.close()
-                }
-              }
-
-              Text {
-                visible: drawTab.asepriteFiles.length > 0
-                width: parent.width
-                wrapMode: Text.WordWrap
-                text: "This pack's art is in " + drawTab.asepriteFiles.map(function(s) { return s.file }).join(", ")
-                  + ", which only Aseprite can edit" + (root.service && !root.service.asepriteInstalled ? " (and build: it isn't installed)" : "")
-                  + ". A drawing adds its animations to the pack; an animation with the same name as one in the .aseprite file competes with it."
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
               }
             }
 

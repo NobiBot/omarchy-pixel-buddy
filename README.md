@@ -7,8 +7,8 @@ naps, reacts when you poke it, and acts out what Claude Code and Codex are doing
 terminal and still know when it's your turn.
 
 Every buddy is a **sprite pack you draw yourself**, and a bar widget manages them. No pixel-art experience needed:
-there's a [step-by-step guide](docs/quick-setup.md). Draw in a real art program such as Aseprite or LibreSprite;
-there's also a built-in pixel editor, but it's very barebones and experimental.
+there's a [step-by-step guide](docs/quick-setup.md). Draw in a pixel-art program such as Aseprite or the free
+LibreSprite. (An experimental built-in pixel editor lives on the `experimental/pixel-editor` branch.)
 
 <img src="https://img.shields.io/badge/omarchy-plugin-7aa2f7" alt="Omarchy plugin"> <img src="https://img.shields.io/badge/works%20with-Claude%20Code%20%2B%20Codex-d97757" alt="Claude Code + Codex"> <img src="https://img.shields.io/badge/version-0.2.0-4c9a2a" alt="version 0.2.0"> <img src="https://img.shields.io/badge/license-MIT-007ec6" alt="MIT license">
 
@@ -98,7 +98,7 @@ inside `~/.config/omarchy/plugins/` changes, and the symlink keeps pack edits an
 triggering that. Goop, the slime, is the `default` pack (`templates/buddy.aseprite` and `templates/pack.json`,
 with its geometry and phrases, recreate it on a fresh install); duplicate it from its right-click menu
 if you want to start from the slime. Without Aseprite the install gets `templates/buddy.png` + `buddy.json` instead,
-which the built-in editor can open. After editing the template, run `bin/pixel-buddy-pack template-png` to re-export the PNG.
+a PNG sheet of the same frames. After editing the template, run `bin/pixel-buddy-pack template-png` to re-export the PNG.
 
 A pack can mix these formats:
 
@@ -136,9 +136,9 @@ shows the buddy.
   mapped, and lists every pack. Click a pack to look at it and **Use for <buddy>** to switch to it
   (double-click does both). **Right-click** a pack for Use, Edit, Duplicate, Open folder and Delete
   (asks first, then moves the pack to `~/.local/share/pixel-buddy/trash/`). **+ New** creates a pack with a blank 128×72 Aseprite canvas (one frame tagged
-  `idle`), puts it on the buddy and opens it in Aseprite. Without Aseprite it creates a blank drawing for the built-in editor
-  instead (Edit pack → Draw). **Aseprite**, **Rebuild** and **Folder** act on the selected pack; **Aseprite** points to the
-  Draw tab when Aseprite isn't installed.
+  `idle`), puts it on the buddy and opens it in Aseprite. Without Aseprite it creates a blank 128×72 `idle.png`
+  instead, for any pixel-art editor. **Aseprite**, **Rebuild** and **Folder** act on the selected pack; **Aseprite** explains
+  how to use another editor when Aseprite isn't installed.
 - **Edit pack → Roles:** the buddy asks for roles (idle, walk, the six work states, …), not tag names.
   The widget guesses each role from your animation names ("Stand" → idle, "run_cycle" → walk,
   "Think" → thinking). Dropdowns fix the rest. Roles with several animations pick one at random.
@@ -161,12 +161,6 @@ shows the buddy.
   Below the work states, **Animations** lists every animation in the pack by its tag name, custom names
   included. Give one some lines and each time that animation starts the buddy says one, picked by the
   same chance %. Give lines on idle or walk a low % (a work status, murmur or chat in the bubble takes priority).
-- **Draw:** the built-in pixel editor. **It's very barebones and experimental**, so expect rough edges and save
-  often; for anything beyond quick touch-ups, use a real art program (Aseprite, or the free LibreSprite). It lists the pack's PNG drawings (**Open**) and makes
-  new ones (**New drawing**). The editor has pencil, eraser, fill, line, box, colour picker and move tools, mirror drawing,
-  a frame strip with per-frame durations, onion skin, named animations, a live preview, undo, and the pack's feet line and
-  hitbox drawn on the canvas. **Save** (Ctrl+S) writes `name.png` + `name.json` (a sheet in the simple format below) and the
-  pack rebuilds. It can't open `.aseprite` files. Shortcuts are listed along its bottom edge.
 - **Info:** name, author, files, build warnings, Duplicate, Delete (moves the pack to
   `~/.local/share/pixel-buddy/trash/`).
 
@@ -255,8 +249,7 @@ omarchy-shell pixel-buddy usage | whisper | toggle | reload | state
 omarchy-shell pixel-buddy packs                 # list packs as JSON
 omarchy-shell pixel-buddy usePack mochi         # all buddies; or main=mochi for one buddy
 omarchy-shell pixel-buddy buildPack mochi | editGeometry mochi
-omarchy-shell pixel-buddy draw mochi "" | draw mochi drawing.png   # the pixel editor ("" = a new drawing)
-omarchy-shell pixel-buddy-studio toggle | edit roles | edit phrases | edit draw   # the bar popup (bind it to a key if you like)
+omarchy-shell pixel-buddy-studio toggle | edit roles | edit phrases   # the bar popup (bind it to a key if you like)
 ```
 
 ## Credits
