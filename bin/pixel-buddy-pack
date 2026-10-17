@@ -17,6 +17,9 @@ lists every pack for the shell.
 
 Usage: pixel-buddy-pack init | index | build [ID…|--all] [--force] | new NAME | duplicate ID NAME
        | delete ID | save ID JSON | icons ID WAITING SUCCESS ERROR | aseprite ID | watch
+       | draw-load ID [FILE] | draw-save ID [FILE] < JSON | template-png
+draw-load / draw-save move a PNG drawing to and from the built-in pixel editor (see cmd_draw_load).
+template-png re-exports templates/buddy.aseprite as templates/buddy.png; run it after editing the template.
 Set ASEPRITE=/path/to/aseprite if it isn't on PATH or in the Steam library.
 """
 
@@ -50,6 +53,8 @@ BUILDS = os.path.join(CACHE, "packs")
 INDEX = os.path.join(CACHE, "index.json")
 LINK = os.path.join(PLUGIN, "packs")
 TEMPLATE = os.path.join(PLUGIN, "templates", "buddy.aseprite")
+# The same art as a PNG drawing (exported from TEMPLATE), for installs without Aseprite
+TEMPLATE_PNG = os.path.join(PLUGIN, "templates", "buddy.png")
 # The default pack's settings (name, geometry, phrases), copied with the template on first start
 TEMPLATE_PACK = os.path.join(PLUGIN, "templates", "pack.json")
 SOURCE_EXT = {".aseprite": "aseprite", ".ase": "aseprite", ".png": "sheet", ".gif": "gif", ".webp": "webp"}
@@ -452,7 +457,7 @@ def write_index(building=()):
         packs.append(entry)
     with Lock("index"):
         write_json(INDEX, {"version": VERSION, "updatedAt": int(time.time() * 1000),
-                           "packsDir": LINK, "packs": packs})
+                           "packsDir": LINK, "aseprite": bool(find_aseprite()), "packs": packs})
 
 
 def build(ids, force=False):
@@ -511,7 +516,11 @@ def cmd_init(quiet=False):
     if not pack_ids() and os.path.isfile(TEMPLATE):
         d = os.path.join(DATA, "default")
         os.makedirs(d)
-        shutil.copy2(TEMPLATE, os.path.join(d, "buddy.aseprite"))
+        if find_aseprite() or not os.path.isfile(TEMPLATE_PNG):
+            shutil.copy2(TEMPLATE, os.path.join(d, "buddy.aseprite"))
+        else:
+            shutil.copy2(TEMPLATE_PNG, os.path.join(d, "buddy.png"))
+            shutil.copy2(os.path.splitext(TEMPLATE_PNG)[0] + ".json", os.path.join(d, "buddy.json"))
         if os.path.isfile(TEMPLATE_PACK):
             shutil.copy2(TEMPLATE_PACK, os.path.join(d, "pack.json"))
         else:
@@ -531,16 +540,21 @@ s:saveAs(app.params.out)
 """
 
 
+def default_canvas():
+    """The recommended canvas size, from the default config's sprite block."""
+    try:
+        sprite = read_json(os.path.join(PLUGIN, "assets", "config.json")).get("sprite") or {}
+    except (OSError, ValueError):
+        sprite = {}
+    return int(sprite.get("width") or 128), int(sprite.get("height") or 72)
+
+
 def blank_aseprite(path):
     """An empty RGB canvas at the recommended size, with one frame tagged "idle"."""
     ase = find_aseprite()
     if not ase:
         raise PackError("Aseprite not found; set ASEPRITE=/path/to/aseprite")
-    try:
-        sprite = read_json(os.path.join(PLUGIN, "assets", "config.json")).get("sprite") or {}
-    except (OSError, ValueError):
-        sprite = {}
-    w, h = int(sprite.get("width") or 128), int(sprite.get("height") or 72)
+    w, h = default_canvas()
     with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False) as fh:
         fh.write(BLANK_LUA)
         script = fh.name
@@ -566,9 +580,14 @@ def cmd_new(name, src=None):
     else:
         os.makedirs(d)
         try:
-            blank_aseprite(os.path.join(d, pid + ".aseprite"))
+            if find_aseprite():
+                blank_aseprite(os.path.join(d, pid + ".aseprite"))
+            else:
+                # No Aseprite: a blank drawing for the built-in pixel editor instead
+                w, h = default_canvas()
+                write_drawing(d, pid + ".png", w, h, [("idle", [Image.new("RGBA", (w, h))], [100])])
         except PackError:
-            os.rmdir(d)
+            shutil.rmtree(d, ignore_errors=True)
             raise
         data = {"name": name, "author": getpass.getuser()}
     write_json(os.path.join(d, "pack.json"), data)
@@ -632,6 +651,144 @@ def cmd_aseprite(pid):
         raise PackError("Aseprite not found; set ASEPRITE=/path/to/aseprite")
     subprocess.Popen([ase] + files, start_new_session=True,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+# ------------------------------------------------------------------ drawings (built-in pixel editor)
+# A drawing is a PNG sheet with the simple JSON sidecar. The editor gets it as a palette plus one
+# palette index per pixel for each frame (index 0 = transparent), and sends the same shape back:
+#   {"file", "width", "height", "palette": [[r, g, b, a], …], "swatches": ["#rrggbbaa", …],
+#    "anims": [{"name", "frames": [{"ms", "px": [index, …]}]}], "others": {name: source file}}
+
+DRAWING_COLS = 16
+
+
+def drawing_name(name):
+    if not name or os.path.basename(name) != name or not name.lower().endswith(".png") or name.startswith("."):
+        raise PackError("bad drawing name: %r" % name)
+    return name
+
+
+def write_drawing(d, name, w, h, anims, swatches=None):
+    """anims: [(name, frames, durations)]. Writes NAME.png and NAME.json side by side."""
+    frames, spec = [], {}
+    for anim, imgs, ms in anims:
+        spec[anim] = {"from": len(frames), "to": len(frames) + len(imgs) - 1, "durations": ms}
+        frames.extend(imgs)
+    if not frames:
+        raise PackError("nothing to save: the drawing has no frames")
+    cols = min(len(frames), DRAWING_COLS)
+    sheet = Image.new("RGBA", (cols * w, math.ceil(len(frames) / cols) * h))
+    for i, f in enumerate(frames):
+        sheet.paste(f, ((i % cols) * w, (i // cols) * h))
+    data = {"frameWidth": w, "frameHeight": h, "animations": spec}
+    if swatches:
+        data["swatches"] = swatches
+    stem = os.path.splitext(name)[0]
+    # Both files land by rename, so the watcher never builds a half-written sheet
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".tmp-", suffix=".png")
+    os.close(fd)
+    sheet.save(tmp)
+    os.chmod(tmp, 0o644)
+    write_json(os.path.join(d, stem + ".json"), data)
+    os.replace(tmp, os.path.join(d, name))
+
+
+def cmd_draw_load(pid, name=None):
+    """Print a drawing for the editor. Without FILE: a blank one at the pack's canvas size."""
+    d = pack_dir(pid)
+    try:
+        man = read_json(os.path.join(BUILDS, pid, "manifest.json"))
+    except (OSError, ValueError):
+        man = {}
+    built = man.get("animations") or {}
+    swatches = []
+    if name:
+        drawing_name(name)
+        if not os.path.isfile(os.path.join(d, name)):
+            raise PackError("no %s in this pack" % name)
+        loaded = load_sheet(os.path.join(d, name))
+        side = os.path.join(d, os.path.splitext(name)[0] + ".json")
+        if os.path.isfile(side):
+            sw = read_json(side).get("swatches")
+            swatches = [c for c in sw if isinstance(c, str)] if isinstance(sw, list) else []
+        w = max(f.width for fr, _ in loaded.values() for f in fr)
+        h = max(f.height for fr, _ in loaded.values() for f in fr)
+    else:
+        w, h = man.get("sourceCanvas") or default_canvas()
+        loaded = {("new" if "idle" in built else "idle"): ([Image.new("RGBA", (w, h))], [100])}
+    palette, index, anims = [[0, 0, 0, 0]], {}, []
+    for anim, (frames, durations) in loaded.items():
+        out = []
+        for f, ms in zip(frames, durations):
+            if f.size != (w, h):
+                full = Image.new("RGBA", (w, h))
+                full.paste(f, ((w - f.width) // 2, h - f.height))
+                f = full
+            raw, px = f.tobytes(), []
+            for k in range(0, len(raw), 4):
+                if raw[k + 3] == 0:
+                    px.append(0)
+                    continue
+                c = raw[k:k + 4]
+                i = index.get(c)
+                if i is None:
+                    i = index[c] = len(palette)
+                    palette.append(list(c))
+                px.append(i)
+            out.append({"ms": int(ms), "px": px})
+        anims.append({"name": anim, "frames": out})
+    others = {n: a.get("source") for n, a in built.items() if a.get("source") != name}
+    json.dump({"file": name or "", "width": w, "height": h, "palette": palette, "swatches": swatches,
+               "anims": anims, "others": others}, sys.stdout, separators=(",", ":"))
+    sys.stdout.write("\n")
+
+
+def cmd_template_png():
+    """Export the default pack's template as a PNG drawing, for installs without Aseprite."""
+    with tempfile.TemporaryDirectory(prefix="pixel-buddy-") as tmp:
+        anims = load_aseprite(TEMPLATE, find_aseprite(), tmp)
+    w = max(f.width for fr, _ in anims.values() for f in fr)
+    h = max(f.height for fr, _ in anims.values() for f in fr)
+    write_drawing(os.path.dirname(TEMPLATE_PNG), os.path.basename(TEMPLATE_PNG), w, h,
+                  [(n, fr, ms) for n, (fr, ms) in anims.items()])
+    log("wrote %s (%d animations)" % (TEMPLATE_PNG, len(anims)))
+
+
+def cmd_draw_save(pid, name=None):
+    """Read one line of JSON (the shape above) from stdin and write the drawing. Prints the file
+    name, which is new (drawing.png, drawing-2.png, …) when FILE is left out."""
+    d = pack_dir(pid)
+    data = json.loads(sys.stdin.readline())
+    w, h = int(data["width"]), int(data["height"])
+    palette = [tuple(max(0, min(255, int(v))) for v in c) for c in data["palette"]]
+    if palette:
+        palette[0] = (0, 0, 0, 0)
+    anims, seen = [], set()
+    for a in data["anims"]:
+        anim = str(a.get("name") or "").strip()
+        if not anim or anim in seen:
+            raise PackError("every animation needs its own name (%r)" % anim)
+        seen.add(anim)
+        imgs, ms = [], []
+        for fr in a.get("frames") or []:
+            px = fr["px"]
+            if len(px) != w * h:
+                raise PackError("a frame of %s has %d pixels, not %d" % (anim, len(px), w * h))
+            colors = [bytes(c) for c in palette]
+            imgs.append(Image.frombytes("RGBA", (w, h), b"".join(
+                colors[i] if 0 <= i < len(colors) else bytes(4) for i in px)))
+            ms.append(max(10, int(fr.get("ms") or 100)))
+        if imgs:
+            anims.append((anim, imgs, ms))
+    if name:
+        drawing_name(name)
+    else:
+        n, name = 2, "drawing.png"
+        while os.path.exists(os.path.join(d, name)) or os.path.exists(os.path.join(d, name[:-4] + ".json")):
+            name, n = "drawing-%d.png" % n, n + 1
+    swatches = [c for c in data.get("swatches") or [] if isinstance(c, str)]
+    write_drawing(d, name, w, h, anims, swatches)
+    log(name)
 
 
 def die_with_parent():
@@ -735,6 +892,12 @@ def main(argv):
             cmd_aseprite(args[0])
         elif cmd == "watch":
             cmd_watch()
+        elif cmd == "draw-load" and len(args) in (1, 2):
+            cmd_draw_load(*args)
+        elif cmd == "draw-save" and len(args) in (1, 2):
+            cmd_draw_save(*args)
+        elif cmd == "template-png":
+            cmd_template_png()
         else:
             print(__doc__.strip(), file=sys.stderr)
             return 2

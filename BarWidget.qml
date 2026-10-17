@@ -8,7 +8,7 @@ import "lib/packs.mjs" as Packs
 import "lib/phrases.mjs" as Phrases
 
 // Bar icon + popup for sprite packs: browse packs, pick one per buddy, create one from the
-// Aseprite template, and edit a pack's role mapping, behavior, geometry and info.
+// Aseprite template, and edit a pack's role mapping, behavior, geometry, drawings and info.
 // All state lives in the pixel-buddy service (Service.qml); this file is only the UI.
 //
 // Bar icon: first frame of the active buddy's idle animation. Left click opens the popup,
@@ -52,6 +52,8 @@ Panel {
   property string previewAnim: ""
   property bool creating: false
   property bool confirmDelete: false
+  // Shown after clicking Aseprite when it isn't installed: points to the Draw tab
+  property bool asepriteHelp: false
   // The phrase field being typed in, so arrow keys and Escape go to the text (nulls itself when the field is destroyed)
   property Item phraseField: null
   // Right-click menu on a pack thumbnail
@@ -112,6 +114,7 @@ Panel {
     previewRole = "idle"
     previewAnim = ""
     confirmDelete = false
+    asepriteHelp = false
   }
 
   function usePack() {
@@ -221,12 +224,13 @@ Panel {
 
   function edit(t) {
     mode = "edit"
-    tab = ["roles", "behavior", "geometry", "phrases", "info"].indexOf(t) >= 0 ? t : "roles"
+    tab = ["roles", "behavior", "geometry", "phrases", "draw", "info"].indexOf(t) >= 0 ? t : "roles"
+    asepriteHelp = false
     confirmDelete = false
     flick.contentY = 0
   }
 
-  // omarchy-shell pixel-buddy-studio toggle | open | close | edit [roles|behavior|geometry|info|phrases]
+  // omarchy-shell pixel-buddy-studio toggle | open | close | edit [roles|behavior|geometry|info|phrases|draw]
   IpcHandler {
     target: root.ipcTarget
     function open(): void { root.open() }
@@ -245,6 +249,7 @@ Panel {
     mode = "home"
     creating = false
     confirmDelete = false
+    asepriteHelp = false
     menuPack = ""
     if (browsePack && service && !service.packIndex[browsePack]) browsePack = ""
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
@@ -658,6 +663,8 @@ Panel {
                   root.service.newPack(name, function(id) {
                     root.service.setBuddyPack(root.buddyId, id, true)
                     root.showPack(id)
+                    if (!root.service.asepriteInstalled)
+                      root.service.showPackMessage("Created " + name + ". Draw it in Edit pack → Draw.", false)
                   })
                 }
               }
@@ -667,7 +674,9 @@ Panel {
               visible: root.creating
               width: parent.width
               wrapMode: Text.WordWrap
-              text: "Opens a blank 128×72 canvas in Aseprite with an idle tag, and puts it on the buddy. Draw, save, and the buddy updates. Add a tag per animation; the Roles tab maps them."
+              text: root.service && !root.service.asepriteInstalled
+                ? "Makes a pack with a blank 128×72 drawing and puts it on the buddy. Draw it in Edit pack → Draw (the built-in pixel editor); saving updates the buddy."
+                : "Opens a blank 128×72 canvas in Aseprite with an idle tag, and puts it on the buddy. Draw, save, and the buddy updates. Add a tag per animation; the Roles tab maps them."
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
@@ -683,11 +692,55 @@ Panel {
                 bordered: true
                 fontSize: Style.font.bodySmall
                 tooltipText: "Open this pack's .aseprite file; saving it rebuilds the pack"
-                onClicked: root.service.openInAseprite(root.packId)
+                onClicked: {
+                  if (root.service.asepriteInstalled) root.service.openInAseprite(root.packId)
+                  else root.asepriteHelp = true
+                }
               }
               Button { text: "Phrases"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "What the buddy says with this pack while Claude Code or Codex works"; onClicked: root.edit("phrases") }
               Button { text: "Rebuild"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Export the pack again from its source files"; onClicked: root.service.rebuildPack(root.packId) }
               Button { text: "Folder"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Open this pack's folder (packs/ in the plugin)"; onClicked: root.service.openPackFolder(root.packId) }
+            }
+
+            // Aseprite clicked but not installed
+            Rectangle {
+              visible: root.asepriteHelp
+              width: parent.width
+              height: visible ? helpCol.implicitHeight + Style.spacing.md * 2 : 0
+              radius: Style.cornerRadius
+              color: Qt.rgba(root.warn.r, root.warn.g, root.warn.b, 0.12)
+              border.color: root.warn
+              border.width: 1
+
+              Column {
+                id: helpCol
+                x: Style.spacing.md
+                y: Style.spacing.md
+                width: parent.width - Style.spacing.md * 2
+                spacing: Style.spacing.md
+
+                Text {
+                  width: parent.width
+                  wrapMode: Text.WordWrap
+                  text: "Aseprite isn't installed. You can draw this buddy in the built-in pixel editor instead: Edit pack → Draw."
+                  color: root.fg
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+                Text {
+                  width: parent.width
+                  wrapMode: Text.WordWrap
+                  text: "To install Aseprite: yay -S aseprite (it builds from source, which takes a while). The pixel editor can't open .aseprite files."
+                  color: root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+                Row {
+                  spacing: Style.spacing.md
+                  Button { text: "Open Draw tab"; bordered: true; selected: true; fontSize: Style.font.bodySmall; onClicked: root.edit("draw") }
+                  Button { text: "Dismiss"; bordered: true; fontSize: Style.font.bodySmall; onClicked: root.asepriteHelp = false }
+                }
+              }
             }
           }
 
@@ -697,18 +750,25 @@ Panel {
             width: parent.width
             spacing: Style.space(10)
 
-            ButtonGroup {
+            // Six tabs: smaller chips that wrap when they don't fit the popup's width
+            Flow {
               width: parent.width
-              // Five tabs: smaller chips so they fit the popup's width
-              fontSize: Style.font.bodySmall
               spacing: Style.spacing.sm
-              options: [{ value: "roles", label: "Roles" }, { value: "behavior", label: "Behavior" },
-                        { value: "geometry", label: "Geometry" }, { value: "phrases", label: "Phrases" }, { value: "info", label: "Info" }]
-              value: root.tab
-              onChanged: function(v) {
-                root.tab = v
-                root.confirmDelete = false
-                value = Qt.binding(function() { return root.tab })
+              Repeater {
+                model: [{ value: "roles", label: "Roles" }, { value: "behavior", label: "Behavior" },
+                        { value: "geometry", label: "Geometry" }, { value: "phrases", label: "Phrases" },
+                        { value: "draw", label: "Draw" }, { value: "info", label: "Info" }]
+                Button {
+                  required property var modelData
+                  text: modelData.label
+                  bordered: true
+                  selected: root.tab === modelData.value
+                  fontSize: Style.font.bodySmall
+                  onClicked: {
+                    root.tab = modelData.value
+                    root.confirmDelete = false
+                  }
+                }
               }
             }
 
@@ -1261,6 +1321,91 @@ Panel {
                     onActiveFocusChanged: if (activeFocus) root.phraseField = this
                   }
                 }
+              }
+            }
+
+            // ---------- Draw
+            Column {
+              id: drawTab
+              visible: root.tab === "draw"
+              width: parent.width
+              spacing: Style.spacing.lg
+
+              readonly property var drawings: root.view ? root.view.entry.sources.filter(function(s) { return s.format === "sheet" }) : []
+              readonly property var asepriteFiles: root.view ? root.view.entry.sources.filter(function(s) { return s.format === "aseprite" }) : []
+
+              Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "The built-in pixel editor: frames, onion skin, and the pack's feet line while you draw. It edits this pack's PNG drawings; saving one rebuilds the pack and the buddy updates."
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              Repeater {
+                model: drawTab.drawings
+
+                Item {
+                  id: drawingRow
+                  required property var modelData
+                  width: drawTab.width
+                  height: openBtn.height
+                  Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - openBtn.width - Style.spacing.md
+                    elide: Text.ElideMiddle
+                    text: drawingRow.modelData.file
+                    color: root.fg
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.body
+                  }
+                  Button {
+                    id: openBtn
+                    anchors.right: parent.right
+                    text: "Open"
+                    bordered: true
+                    selected: true
+                    fontSize: Style.font.bodySmall
+                    onClicked: {
+                      root.service.openSpriteEditor(root.packId, drawingRow.modelData.file)
+                      root.close()
+                    }
+                  }
+                }
+              }
+
+              Text {
+                visible: drawTab.drawings.length === 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "No drawings in this pack yet."
+                color: root.fg
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+              }
+
+              Button {
+                text: "New drawing"
+                bordered: true
+                fontSize: Style.font.bodySmall
+                tooltipText: "A blank drawing at this pack's canvas size, saved as a new PNG in the pack"
+                onClicked: {
+                  root.service.openSpriteEditor(root.packId, "")
+                  root.close()
+                }
+              }
+
+              Text {
+                visible: drawTab.asepriteFiles.length > 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "This pack's art is in " + drawTab.asepriteFiles.map(function(s) { return s.file }).join(", ")
+                  + ", which only Aseprite can edit" + (root.service && !root.service.asepriteInstalled ? " (and build: it isn't installed)" : "")
+                  + ". A drawing adds its animations to the pack; an animation with the same name as one in the .aseprite file competes with it."
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
               }
             }
 

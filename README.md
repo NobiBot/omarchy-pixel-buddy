@@ -12,18 +12,23 @@ git clone https://github.com/NobiBot/omarchy-pixel-buddy ~/.config/omarchy/plugi
 ```
 
 Then add `{ "id": "nobi.pixel-buddy" }` to `plugins` and to `bar.layout.right` in `~/.config/omarchy/shell.json`.
-On first start the buddy creates `packs/` and the default pack, Goop, from `templates/buddy.aseprite` and `templates/pack.json`.
+On first start the buddy creates `packs/` and the default pack, Goop, from `templates/buddy.aseprite` and `templates/pack.json`
+(or from `templates/buddy.png`, the same art as a PNG drawing, when Aseprite isn't installed).
 Needs `jq`, `socat`, `notify-send`, `inotify-tools`, `python-pillow` and `qt6-imageformats`.
 After changing the plugin's QML yourself, run `omarchy restart shell`.
 
 ## Sprite packs
+
+New to pixel art? Start with the **[quick setup guide](docs/quick-setup.md)**: it walks through drawing
+your first buddy and how to place it on the canvas so it stands on the ground.
 
 Every buddy design is a **pack**: a folder in `packs/` holding the art plus an optional `pack.json`.
 `packs/` is a symlink to `~/.local/share/pixel-buddy/packs/`. Omarchy reloads every plugin when a file
 inside `~/.config/omarchy/plugins/` changes, and the symlink keeps pack edits and rebuilds from
 triggering that. Goop, the slime, is the `default` pack (`templates/buddy.aseprite` and `templates/pack.json`,
 with its geometry and phrases, recreate it on a fresh install); duplicate it from its right-click menu
-if you want to start from the slime.
+if you want to start from the slime. Without Aseprite the install gets `templates/buddy.png` + `buddy.json` instead,
+which the built-in editor can open. After editing the template, run `bin/pixel-buddy-pack template-png` to re-export the PNG.
 
 A pack can mix these formats:
 
@@ -61,7 +66,9 @@ shows the buddy.
   mapped, and lists every pack. Click a pack to look at it and **Use for <buddy>** to switch to it
   (double-click does both). **Right-click** a pack for Use, Edit, Duplicate, Open folder and Delete
   (asks first, then moves the pack to `~/.local/share/pixel-buddy/trash/`). **+ New** creates a pack with a blank 128×72 Aseprite canvas (one frame tagged
-  `idle`), puts it on the buddy and opens it in Aseprite. **Aseprite**, **Rebuild** and **Folder** act on the selected pack.
+  `idle`), puts it on the buddy and opens it in Aseprite. Without Aseprite it creates a blank drawing for the built-in editor
+  instead (Edit pack → Draw). **Aseprite**, **Rebuild** and **Folder** act on the selected pack; **Aseprite** points to the
+  Draw tab when Aseprite isn't installed.
 - **Edit pack → Roles:** the buddy asks for roles (idle, walk, the six work states, …), not tag names.
   The widget guesses each role from your animation names ("Stand" → idle, "run_cycle" → walk,
   "Think" → thinking). Dropdowns fix the rest. Roles with several animations pick one at random.
@@ -84,6 +91,11 @@ shows the buddy.
   Below the work states, **Animations** lists every animation in the pack by its tag name, custom names
   included. Give one some lines and each time that animation starts the buddy says one, picked by the
   same chance %. Give lines on idle or walk a low % (a work status, murmur or chat in the bubble takes priority).
+- **Draw:** the built-in pixel editor, for drawing without Aseprite. It lists the pack's PNG drawings (**Open**) and makes
+  new ones (**New drawing**). The editor has pencil, eraser, fill, line, box, colour picker and move tools, mirror drawing,
+  a frame strip with per-frame durations, onion skin, named animations, a live preview, undo, and the pack's feet line and
+  hitbox drawn on the canvas. **Save** (Ctrl+S) writes `name.png` + `name.json` (a sheet in the simple format below) and the
+  pack rebuilds. It can't open `.aseprite` files. Shortcuts are listed along its bottom edge.
 - **Info:** name, author, files, build warnings, Duplicate, Delete (moves the pack to
   `~/.local/share/pixel-buddy/trash/`).
 
@@ -184,7 +196,8 @@ omarchy-shell pixel-buddy usage | whisper | toggle | reload | state
 omarchy-shell pixel-buddy packs                 # list packs as JSON
 omarchy-shell pixel-buddy usePack mochi         # all buddies; or main=mochi for one buddy
 omarchy-shell pixel-buddy buildPack mochi | editGeometry mochi
-omarchy-shell pixel-buddy-studio toggle | edit roles | edit phrases   # the bar popup (bind it to a key if you like)
+omarchy-shell pixel-buddy draw mochi "" | draw mochi drawing.png   # the pixel editor ("" = a new drawing)
+omarchy-shell pixel-buddy-studio toggle | edit roles | edit phrases | edit draw   # the bar popup (bind it to a key if you like)
 ```
 
 ## Credits
