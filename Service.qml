@@ -98,6 +98,8 @@ Scope {
   property string packMessage: ""
   property bool packMessageError: false
   property string busyPack: ""
+  // From the index: whether pixel-buddy-pack found Aseprite (the built-in editor is the fallback)
+  property bool asepriteInstalled: true
   // packId -> { builtAt, names }: animations whose frames changed in the latest rebuild,
   // so the buddy can show what you just saved
   property var packChanges: ({})
@@ -247,6 +249,7 @@ Scope {
       }) }
     })
     packChanges = changes
+    asepriteInstalled = data.aseprite !== false
     var busy = list.filter(function(p) { return p.status === "building" })[0]
     busyPack = busy ? busy.id : (packTask.running ? busyPack : "")
     packIndex = map
@@ -446,7 +449,8 @@ Scope {
     return runPackTask(["new", name], "", function(code, out) {
       var id = out.split("\n").pop()
       if (code !== 0 || !id) return
-      root.openInAseprite(id)
+      // Without Aseprite the pack starts as a blank drawing; the popup points to the Draw tab
+      if (root.asepriteInstalled) root.openInAseprite(id)
       if (done) done(id)
     })
   }
@@ -520,6 +524,29 @@ Scope {
       })
     }
     geometryPreview = null
+  }
+
+  // Built-in pixel editor (Edit pack → Draw): one PNG drawing of a pack; drawFile "" = a new drawing
+  property string drawPackId: ""
+  property string drawFile: ""
+
+  function openSpriteEditor(packId, file) {
+    drawPackId = ""
+    drawFile = file || ""
+    drawPackId = packId
+  }
+
+  function closeSpriteEditor() {
+    drawPackId = ""
+  }
+
+  LazyLoader {
+    active: root.drawPackId !== ""
+    SpriteEditor {
+      service: root
+      packId: root.drawPackId
+      file: root.drawFile
+    }
   }
 
   LazyLoader {
@@ -1107,6 +1134,12 @@ Scope {
     function editGeometry(packId: string): string {
       if (!root.packIndex[packId]) return "no-pack"
       root.openGeometryEditor(packId)
+      return "ok"
+    }
+    // omarchy-shell pixel-buddy draw <pack> [file.png]: open the built-in pixel editor ("" = a new drawing)
+    function draw(packId: string, file: string): string {
+      if (!root.packIndex[packId]) return "no-pack"
+      root.openSpriteEditor(packId, file)
       return "ok"
     }
     function buildPack(packId: string): string {
