@@ -1,21 +1,89 @@
 # Pixel Buddy
 
-Your own pixel-art desktop buddy for Omarchy. It's a fork of
-[chthollyphile/omarchy-agent-pet](https://github.com/chthollyphile/omarchy-agent-pet) with the same behavior:
-idling, random actions, walking, drag and throw, click reactions, and Claude Code / Codex work status in a speech bubble.
-The animations come from sprite packs you draw yourself, and a bar widget manages them.
+<img align="right" src="docs/img/goop-hero.gif" width="240" alt="Goop, the default Pixel Buddy">
 
-## Install
+**Your own pixel-art desktop buddy for [Omarchy](https://omarchy.org).** It lives above your windows, wanders around,
+naps, reacts when you poke it, and acts out what Claude Code and Codex are doing, so you can look away from the
+terminal and still know when it's your turn.
+
+Every buddy is a **sprite pack you draw yourself**, and a bar widget manages them. No pixel-art experience needed:
+there's a [step-by-step guide](docs/quick-setup.md) and a built-in pixel editor.
+
+<img src="https://img.shields.io/badge/omarchy-plugin-7aa2f7" alt="Omarchy plugin"> <img src="https://img.shields.io/badge/works%20with-Claude%20Code%20%2B%20Codex-d97757" alt="Claude Code + Codex"> <img src="https://img.shields.io/badge/version-0.2.0-4c9a2a" alt="version 0.2.0"> <img src="https://img.shields.io/badge/license-MIT-007ec6" alt="MIT license">
+
+<br clear="right">
+
+**Contents:** [Install](#1-install) · [Connect your agents](#2-connect-claude-code-and-codex) · [Draw your own](#3-draw-your-own-buddy) · [Give it a voice](#4-give-it-a-voice) · [The bar widget](#the-bar-widget) · [Sprite packs](#sprite-packs) · [Walking](#walking) · [Roles](#roles-and-the-default-packs-tag-names) · [Config](#config) · [Commands](#commands)
+
+## What you get
+
+<table>
+  <tr>
+    <td align="center" width="170"><img src="docs/img/goop-work-working.gif" width="150"></td>
+    <td><b>A live status light for your agents.</b> Thinking, working, reviewing, waiting for you, done, error: each has its own animation and speech bubble. When the agent needs you, you also get a notification.</td>
+  </tr>
+  <tr>
+    <td align="center" width="170"><img src="docs/img/goop-click-hop.gif" width="150"></td>
+    <td><b>A pet you can play with.</b> Click it and it hops. Grab it, throw it, and watch it bounce off the screen edges. Left alone, it walks, turns, naps and stretches.</td>
+  </tr>
+  <tr>
+    <td align="center" width="170"><img src="docs/img/goop-sleep.gif" width="150"></td>
+    <td><b>Your art, live.</b> Draw in Aseprite or the built-in editor, hit save, and the buddy changes about a second later. Name animations however you like; the widget figures out what each one is for.</td>
+  </tr>
+  <tr>
+    <td align="center" width="170"><img src="docs/img/goop-work-success.gif" width="150"></td>
+    <td><b>Its own personality.</b> Per-pack lines for every state and animation, usage moods as your rate limits run down, murmurs and a chat window powered by your own <code>claude</code> or <code>codex</code> CLI.</td>
+  </tr>
+</table>
+
+## 1. Install
 
 ```bash
 git clone https://github.com/NobiBot/omarchy-pixel-buddy ~/.config/omarchy/plugins/nobi.pixel-buddy
 ```
 
-Then add `{ "id": "nobi.pixel-buddy" }` to `plugins` and to `bar.layout.right` in `~/.config/omarchy/shell.json`.
-On first start the buddy creates `packs/` and the default pack, Goop, from `templates/buddy.aseprite` and `templates/pack.json`
-(or from `templates/buddy.png`, the same art as a PNG drawing, when Aseprite isn't installed).
-Needs `jq`, `socat`, `notify-send`, `inotify-tools`, `python-pillow` and `qt6-imageformats`.
-After changing the plugin's QML yourself, run `omarchy restart shell`.
+Add `{ "id": "nobi.pixel-buddy" }` to `plugins` and to `bar.layout.right` in `~/.config/omarchy/shell.json`.
+On first start the buddy creates `packs/` and the default pack, **Goop** the slime.
+
+> [!NOTE]
+> Needs `jq`, `socat`, `notify-send`, `inotify-tools`, `python-pillow` and `qt6-imageformats`.
+> Aseprite is optional. After changing the plugin's QML yourself, run `omarchy restart shell`.
+
+## 2. Connect Claude Code and Codex
+
+```bash
+~/.config/omarchy/plugins/nobi.pixel-buddy/bin/pixel-buddy-install-hooks   # --uninstall to remove
+```
+
+This backs up and edits `~/.claude/settings.json` and `~/.codex/hooks.json`. Start a session and the buddy follows along:
+
+| <img src="docs/img/goop-work-thinking.gif" width="110"> | <img src="docs/img/goop-work-working.gif" width="110"> | <img src="docs/img/goop-work-reviewing.gif" width="110"> | <img src="docs/img/goop-work-waiting.gif" width="110"> | <img src="docs/img/goop-work-success.gif" width="110"> | <img src="docs/img/goop-work-error.gif" width="110"> |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| thinking | working | reviewing | waiting for you | success | error |
+
+The plugin uses its own names everywhere (`pixel-buddy-hook`, socket `$XDG_RUNTIME_DIR/pixel-buddy/`, config `~/.config/pixel-buddy/`,
+state `~/.local/state/pixel-buddy/`, IPC `omarchy-shell pixel-buddy …`), so it can run next to the original Agent Pet.
+
+## 3. Draw your own buddy
+
+![The canvas, the feet line and the hitbox](docs/img/canvas.png)
+
+1. Left-click the buddy icon in the bar → **+ New** → type a name.
+2. Draw your character **facing left** near the bottom of the 128 × 72 canvas, on a transparent background.
+3. Save (**Ctrl+S**). About a second later it's on your desktop.
+
+That one `idle` animation is enough to start. The **[quick setup guide](docs/quick-setup.md)** covers the rest:
+frames, tags, the feet line, and adding walks and reactions. No Aseprite? Use **Edit pack → Draw**.
+
+## 4. Give it a voice
+
+Open **Phrases** from the bar widget and write what this buddy says for each work state, like
+“On it!” for working or “Your turn!” for waiting. Each line gets a **chance %**, so some lines are rare and some states
+can stay quiet. You can give lines to any animation too: a sleepy “zzz…” when it naps.
+
+---
+
+# Reference
 
 ## Sprite packs
 
@@ -42,7 +110,7 @@ A pack can mix these formats:
 Draw the buddy facing left, or set "drawn facing: Right" in the editor. Any canvas works: the
 builder pads it to 16:9 and keeps the feet on the bottom edge.
 
-### Walking
+## Walking
 
 The buddy walks on its own: every time an animation ends it picks what to do next, by default idle 55%,
 turn 15%, walk 15%, random action 15% (`animationWeights` in the config), split evenly between the
@@ -56,7 +124,7 @@ for every walk and simply flips. Right-click the buddy → the walk entry starts
 The buddy is centred on its hitbox, so a character drawn off-centre on the canvas still walks and
 flips in place; set the hitbox around the body with the geometry editor's **Fit to sprite**.
 
-### The bar widget
+## The bar widget
 
 Add `nobi.pixel-buddy` to the bar (it sits in `bar.layout.right` of `~/.config/omarchy/shell.json`).
 The icon is your buddy's first idle frame. **Left-click** opens the popup and **right-click** hides or
@@ -174,18 +242,6 @@ Each **top-level** key you write replaces the default key as a whole. So if you 
 - **`whisperPrompt`** is the buddy's personality for murmurs and chat.
 - **Stickers:** put PNGs in `assets/memes/` and list them under `memes` as `"file name without .png": "when to use it"`. Chat and murmur bubbles can then show them.
 - **Other options** (physics, usage, LLM, step summaries) work like the original. See the [agent-pet configuration reference](https://github.com/chthollyphile/agent-pet#configuration).
-
-## Work status (Claude Code / Codex)
-
-Install the hooks once. This backs up and edits `~/.claude/settings.json` and `~/.codex/hooks.json`:
-
-```bash
-~/.config/omarchy/plugins/nobi.pixel-buddy/bin/pixel-buddy-install-hooks             # --uninstall to remove
-```
-
-This plugin uses its own names everywhere: `pixel-buddy-hook`, socket `$XDG_RUNTIME_DIR/pixel-buddy/`, config `~/.config/pixel-buddy/`,
-state `~/.local/state/pixel-buddy/`, and IPC `omarchy-shell pixel-buddy …`. It can run next to the original Agent Pet without conflicts.
-Needs `jq`, `socat`, `notify-send` and `qt6-imageformats` (for WebP).
 
 ## Commands
 
