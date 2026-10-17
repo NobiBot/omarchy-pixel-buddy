@@ -59,6 +59,7 @@ PanelWindow {
   property bool wholeAnim: false // move and flip act on every frame of the animation
   property bool playing: true
   property int userZoom: 0
+  property real wheelZoomAccum: 0
   property int hoverX: -1
   property int hoverY: -1
   property var clipboard: null
@@ -526,8 +527,8 @@ PanelWindow {
     else if (ctrl && k === Qt.Key_C) { clipboard = frameObj.px; say("Copied frame " + (frameIndex + 1), false) }
     else if (ctrl && k === Qt.Key_V) pasteFrame()
     else if (alt && k === Qt.Key_N) addFrame(true)
-    else if (ctrl && (k === Qt.Key_Plus || k === Qt.Key_Equal)) userZoom = Math.min(40, zoom + 1)
-    else if (ctrl && k === Qt.Key_Minus) userZoom = Math.max(1, zoom - 1)
+    else if (ctrl && (k === Qt.Key_Plus || k === Qt.Key_Equal)) zoomAt(nextZoom(zoom, 1), flick.width / 2, flick.height / 2)
+    else if (ctrl && k === Qt.Key_Minus) zoomAt(nextZoom(zoom, -1), flick.width / 2, flick.height / 2)
     else if (ctrl && k === Qt.Key_0) userZoom = 0
     else if (ctrl || alt) return
     else if (k === Qt.Key_Escape) confirmClose ? confirmClose = false : requestClose()
@@ -1033,6 +1034,15 @@ PanelWindow {
           boundsBehavior: Flickable.StopAtBounds
           clip: true
 
+          // Ctrl+wheel in the margin around the sprite zooms too
+          MouseArea {
+            id: marginWheel
+            width: flick.contentWidth
+            height: flick.contentHeight
+            acceptedButtons: Qt.NoButton
+            onWheel: function(w) { win.wheelZoom(w, marginWheel) }
+          }
+
           Item {
             id: stage
             x: (flick.contentWidth - width) / 2
@@ -1040,115 +1050,128 @@ PanelWindow {
             width: win.cw * win.zoom
             height: win.ch * win.zoom
 
-            // Checkerboard: transparent pixels
-            Canvas {
-              anchors.fill: parent
-              onWidthChanged: requestPaint()
-              onHeightChanged: requestPaint()
-              onPaint: {
-                var g = getContext("2d")
-                var s = Math.max(4, win.zoom * 4)
-                for (var y = 0; y < height; y += s)
-                  for (var x = 0; x < width; x += s) {
-                    g.fillStyle = ((x + y) / s) % 2 ? "#d8d8dc" : "#f4f4f6"
-                    g.fillRect(x, y, s, s)
+            // The checkerboard, frame and previews are painted one canvas pixel per
+            // sprite pixel and scaled up unsmoothed, so zooming never repaints
+            // (or allocates) a screen-sized bitmap.
+            Item {
+              width: win.cw
+              height: win.ch
+              scale: win.zoom
+              transformOrigin: Item.TopLeft
+
+              // Checkerboard: transparent pixels
+              Canvas {
+                anchors.fill: parent
+                smooth: false
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onPaint: {
+                  var g = getContext("2d")
+                  for (var y = 0; y < height; y += 4)
+                    for (var x = 0; x < width; x += 4) {
+                      g.fillStyle = ((x + y) / 4) % 2 ? "#d8d8dc" : "#f4f4f6"
+                      g.fillRect(x, y, 4, 4)
+                    }
+                }
+              }
+
+              // The frame. Full repaints on anything but a stroke; a stroke repaints only dirtyPx.
+              Canvas {
+                id: art
+                property bool full: true
+                property var dirtyPx: []
+                property int moveX: 0
+                property int moveY: 0
+                x: moveX
+                y: moveY
+                width: parent.width
+                height: parent.height
+                smooth: false
+
+                function repaintAll() {
+                  full = true
+                  requestPaint()
+                }
+
+                onPaint: {
+                  var g = getContext("2d")
+                  var px = win.frameObj ? win.frameObj.px : null
+                  var onionPx = win.onionPx
+                  if (full) {
+                    full = false
+                    dirtyPx = []
+                    g.clearRect(0, 0, width, height)
+                    if (onionPx) win.paintPx(g, onionPx, 1, 0.28)
+                    win.paintPx(g, px, 1, 1)
+                    return
                   }
-              }
-            }
-
-            // The frame. Full repaints on anything but a stroke; a stroke repaints only dirtyPx.
-            Canvas {
-              id: art
-              property bool full: true
-              property var dirtyPx: []
-              property int moveX: 0
-              property int moveY: 0
-              x: moveX * win.zoom
-              y: moveY * win.zoom
-              width: parent.width
-              height: parent.height
-
-              function repaintAll() {
-                full = true
-                requestPaint()
-              }
-
-              onPaint: {
-                var g = getContext("2d")
-                var z = win.zoom
-                var px = win.frameObj ? win.frameObj.px : null
-                var onionPx = win.onionPx
-                if (full) {
-                  full = false
+                  var list = dirtyPx, cssList = win.paletteCss
                   dirtyPx = []
+                  for (var k = 0; k < list.length; k++) {
+                    var i = list[k], x = i % win.cw, y = Math.floor(i / win.cw)
+                    g.clearRect(x, y, 1, 1)
+                    if (onionPx && onionPx[i]) {
+                      g.globalAlpha = 0.28
+                      g.fillStyle = cssList[onionPx[i]]
+                      g.fillRect(x, y, 1, 1)
+                      g.globalAlpha = 1
+                    }
+                    if (px && px[i]) {
+                      g.fillStyle = cssList[px[i]]
+                      g.fillRect(x, y, 1, 1)
+                    }
+                  }
+                }
+
+                Connections {
+                  target: win
+                  function onFrameObjChanged() { art.repaintAll() }
+                  function onOnionPxChanged() { art.repaintAll() }
+                  function onAnimsChanged() { art.repaintAll() }
+                }
+                onWidthChanged: repaintAll()
+                onHeightChanged: repaintAll()
+              }
+
+              // Line and box previews
+              Canvas {
+                id: ghost
+                anchors.fill: parent
+                smooth: false
+                property var pts: []
+                property string fillCss: ""
+                onPaint: {
+                  var g = getContext("2d")
                   g.clearRect(0, 0, width, height)
-                  if (onionPx) win.paintPx(g, onionPx, z, 0.28)
-                  win.paintPx(g, px, z, 1)
-                  return
-                }
-                var list = dirtyPx, cssList = win.paletteCss
-                dirtyPx = []
-                for (var k = 0; k < list.length; k++) {
-                  var i = list[k], x = i % win.cw, y = Math.floor(i / win.cw)
-                  g.clearRect(x * z, y * z, z, z)
-                  if (onionPx && onionPx[i]) {
-                    g.globalAlpha = 0.28
-                    g.fillStyle = cssList[onionPx[i]]
-                    g.fillRect(x * z, y * z, z, z)
-                    g.globalAlpha = 1
+                  g.fillStyle = fillCss
+                  for (var k = 0; k < pts.length; k++) {
+                    g.fillRect(pts[k][0], pts[k][1], 1, 1)
+                    if (win.mirrorDraw) g.fillRect(win.cw - 1 - pts[k][0], pts[k][1], 1, 1)
                   }
-                  if (px && px[i]) {
-                    g.fillStyle = cssList[px[i]]
-                    g.fillRect(x * z, y * z, z, z)
-                  }
-                }
-              }
-
-              Connections {
-                target: win
-                function onFrameObjChanged() { art.repaintAll() }
-                function onOnionPxChanged() { art.repaintAll() }
-                function onZoomChanged() { art.repaintAll() }
-                function onAnimsChanged() { art.repaintAll() }
-              }
-              onWidthChanged: repaintAll()
-            }
-
-            // Line and box previews
-            Canvas {
-              id: ghost
-              anchors.fill: parent
-              property var pts: []
-              property string fillCss: ""
-              onPaint: {
-                var g = getContext("2d")
-                g.clearRect(0, 0, width, height)
-                g.fillStyle = fillCss
-                var z = win.zoom
-                for (var k = 0; k < pts.length; k++) {
-                  g.fillRect(pts[k][0] * z, pts[k][1] * z, z, z)
-                  if (win.mirrorDraw) g.fillRect((win.cw - 1 - pts[k][0]) * z, pts[k][1] * z, z, z)
                 }
               }
             }
 
-            // Pixel grid, heavier every 8 pixels
-            Canvas {
+            // Pixel grid, heavier every 8 pixels. Plain lines so they stay 1px at any zoom.
+            Item {
               anchors.fill: parent
               visible: win.grid && win.zoom >= 4
-              onWidthChanged: requestPaint()
-              onHeightChanged: requestPaint()
-              onPaint: {
-                var g = getContext("2d")
-                g.clearRect(0, 0, width, height)
-                var z = win.zoom
-                for (var x = 0; x <= win.cw; x++) {
-                  g.fillStyle = x % 8 === 0 ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.07)"
-                  g.fillRect(x * z, 0, 1, height)
+              Repeater {
+                model: win.cw + 1
+                Rectangle {
+                  x: index * win.zoom
+                  width: 1
+                  height: parent.height
+                  color: index % 8 === 0 ? "#38000000" : "#12000000"
                 }
-                for (var y = 0; y <= win.ch; y++) {
-                  g.fillStyle = y % 8 === 0 ? "rgba(0,0,0,0.22)" : "rgba(0,0,0,0.07)"
-                  g.fillRect(0, y * z, width, 1)
+              }
+              Repeater {
+                model: win.ch + 1
+                Rectangle {
+                  y: index * win.zoom
+                  width: parent.width
+                  height: 1
+                  color: index % 8 === 0 ? "#38000000" : "#12000000"
                 }
               }
             }
@@ -1321,14 +1344,7 @@ PanelWindow {
 
               onExited: win.hoverX = -1
 
-              onWheel: function(w) {
-                if (w.modifiers & Qt.ControlModifier) {
-                  win.userZoom = Math.max(1, Math.min(40, win.zoom + (w.angleDelta.y > 0 ? 1 : -1)))
-                  w.accepted = true
-                } else {
-                  w.accepted = false
-                }
-              }
+              onWheel: function(w) { win.wheelZoom(w, drawArea) }
             }
           }
         }
@@ -1476,6 +1492,43 @@ PanelWindow {
 
   readonly property int fitZoom: Math.max(1, Math.floor(Math.min((stageBox.width - Style.space(48)) / cw, (stageBox.height - Style.space(48)) / ch)))
   readonly property int zoom: userZoom > 0 ? userZoom : fitZoom
+  readonly property var zoomSteps: [1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40]
+
+  // The next step up (dir > 0) or down the ladder from z
+  function nextZoom(z, dir) {
+    if (dir > 0) {
+      for (var i = 0; i < zoomSteps.length; i++) if (zoomSteps[i] > z) return zoomSteps[i]
+      return zoomSteps[zoomSteps.length - 1]
+    }
+    for (var j = zoomSteps.length - 1; j >= 0; j--) if (zoomSteps[j] < z) return zoomSteps[j]
+    return zoomSteps[0]
+  }
+
+  // Zoom to z keeping the canvas point under (vx, vy), in flick's viewport, where it is
+  function zoomAt(z, vx, vy) {
+    if (z === zoom) return
+    var px = (flick.contentX + vx - stage.x) / zoom
+    var py = (flick.contentY + vy - stage.y) / zoom
+    userZoom = z
+    flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, stage.x + px * z - vx))
+    flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, stage.y + py * z - vy))
+  }
+
+  // Ctrl+wheel: one step per wheel notch (120). Trackpads send many small
+  // deltas, so they're summed until they add up to a notch.
+  function wheelZoom(w, item) {
+    if (!(w.modifiers & Qt.ControlModifier)) { w.accepted = false; return }
+    w.accepted = true
+    var d = w.angleDelta.y
+    if (d === 0) return
+    if ((d > 0) !== (wheelZoomAccum > 0)) wheelZoomAccum = 0
+    wheelZoomAccum += d
+    if (Math.abs(wheelZoomAccum) < 120) return
+    var dir = wheelZoomAccum > 0 ? 1 : -1
+    wheelZoomAccum -= dir * 120
+    var p = item.mapToItem(flick, w.x, w.y)
+    zoomAt(nextZoom(zoom, dir), p.x, p.y)
+  }
 
   Component.onCompleted: {
     card.forceActiveFocus()
