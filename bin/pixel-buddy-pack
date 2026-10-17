@@ -43,7 +43,7 @@ try:
 except ImportError:
     sys.exit("pixel-buddy-pack needs Pillow: omarchy pkg add python-pillow")
 
-VERSION = 4  # bump when the build output changes, to rebuild every pack once
+VERSION = 5  # bump when the build output changes, to rebuild every pack once
 PLUGIN = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 HOME = os.path.expanduser("~")
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or HOME + "/.local/share", "pixel-buddy", "packs")
@@ -383,8 +383,10 @@ def build_pack(pid, force=False):
             if len(padded) == 1:
                 padded[0].save(path, lossless=True)
             else:
+                # Every frame a whole-canvas keyframe (kmax=1): Qt's WebP reader ignores frame
+                # disposal, so a smaller patch frame leaves the previous frame showing around it
                 padded[0].save(path, save_all=True, append_images=padded[1:], duration=durations,
-                               loop=0, lossless=True, minimize_size=False)
+                               loop=0, lossless=True, minimize_size=False, kmin=0, kmax=1)
             # Fingerprint of the frames, so the shell can tell which animations a save changed
             digest = hashlib.md5(repr(durations).encode())
             for f in padded:
