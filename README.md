@@ -38,11 +38,11 @@ LibreSprite. (An experimental built-in pixel editor lives on the `experimental/p
 </table>
 
 **Three buddies to start with:** Goop, made by me, and two others (Clawd and Mochi), made by Claude Code.
-Each one has every animation and its own lines. Pick one in the bar widget, or draw your own.
+Each one has every animation and its own lines. Pick one in the bar widget, edit them to your liking, or draw your own.
 
 <table>
   <tr>
-    <td align="center"><img src="docs/img/goop-hero.gif" width="150"><br><b>Goop</b> the slime<br><code>default</code></td>
+    <td align="center"><img src="docs/img/goop-hero.gif" width="150"><br><b>Goop</b> the slime<br><code>Goop</code></td>
     <td align="center"><img src="docs/img/clawd-hero.gif" width="150"><br><b>Clawd</b>, Claude Code's mascot<br><code>clawd</code></td>
     <td align="center"><img src="docs/img/mochi-hero.gif" width="150"><br><b>Mochi</b> the cat<br><code>mochi</code></td>
   </tr>
