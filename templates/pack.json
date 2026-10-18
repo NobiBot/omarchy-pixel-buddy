@@ -52,6 +52,24 @@
         "text": "Weeeeeee!!!!",
         "chance": 90
       }
+    ],
+    "look-at-wallpaper": [
+      "oooo...I like your wallpaper"
     ]
+  },
+  "roles": {
+    "actions": [
+      "sleep",
+      "stretch",
+      "look-at-wallpaper"
+    ]
+  },
+  "behavior": {
+    "playSec": {
+      "look-at-wallpaper": 0
+    },
+    "chance": {
+      "look-at-wallpaper": 2
+    }
   }
 }

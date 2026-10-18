@@ -242,7 +242,7 @@ Each buddy's pack choice is stored in `~/.config/pixel-buddy/ui.json`. A buddy c
 | Held by the mouse | `drag` |
 | Left-click reactions, picked at random | `click-hop`, `click-surprised` |
 | Walking: a walk cycle that loops while the plugin slides the buddy at `speed` | `walk` |
-| Random actions | `sleep`, `stretch` |
+| Random actions | `sleep`, `stretch`, `look-at-wallpaper` (plays once) |
 | Work status, in this order: thinking, working, reviewing, waiting for you, success, error | `work-thinking`, `work-working`, `work-reviewing`, `work-waiting`, `work-success`, `work-error` |
 | Usage level, 6 tiers from 0% to 100% used | `usage-plenty` ×2, `usage-ok` ×2, `usage-low`, `usage-empty` |
 | Murmur bubble | `whisper` |
