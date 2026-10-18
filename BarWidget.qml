@@ -1078,9 +1078,10 @@ Panel {
 
                   Item {
                     width: parent.width
-                    height: Math.max(animName.implicitHeight, playField.height)
+                    height: Math.max(animText.implicitHeight, playField.height)
                     HoverHandler { onHoveredChanged: if (hovered) root.previewAnim = animRow.modelData }
                     Column {
+                      id: animText
                       anchors.verticalCenter: parent.verticalCenter
                       Text {
                         id: animName
