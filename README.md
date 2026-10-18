@@ -14,7 +14,7 @@ LibreSprite. (An experimental built-in pixel editor lives on the `experimental/p
 
 <br clear="right">
 
-**Contents:** [Install](#1-install) · [Connect your agents](#2-connect-claude-code-and-codex) · [Draw your own](#3-draw-your-own-buddy) · [Give it a voice](#4-give-it-a-voice) · [The bar widget](#the-bar-widget) · [Sprite packs](#sprite-packs) · [Walking](#walking) · [Roles](#roles-and-the-default-packs-tag-names) · [Config](#config) · [Commands](#commands)
+**Contents:** [Install](#1-install) · [Connect your agents](#2-connect-claude-code-and-codex) · [Draw your own](#3-draw-your-own-buddy) · [Give it a voice](#4-give-it-a-voice) · [The bar widget](#the-bar-widget) · [Sprite packs](#sprite-packs) · [Walking](#walking) · [Roles](#roles-and-the-default-packs-tag-names) · [Config](#config) · [Commands](#commands) · [Uninstall](#uninstall)
 
 ## What you get
 
@@ -280,6 +280,19 @@ omarchy-shell pixel-buddy packs                 # list packs as JSON
 omarchy-shell pixel-buddy usePack mochi         # all buddies; or main=mochi for one buddy
 omarchy-shell pixel-buddy buildPack mochi | editGeometry mochi
 omarchy-shell pixel-buddy-studio toggle | edit roles | edit phrases   # the bar popup (bind it to a key if you like)
+```
+
+## Uninstall
+
+```bash
+~/.config/omarchy/plugins/nobi.pixel-buddy/bin/pixel-buddy-install-hooks --uninstall   # remove the agent hooks first
+omarchy plugin remove nobi.pixel-buddy
+```
+
+That leaves your packs and settings in place, in case you reinstall. To delete them too:
+
+```bash
+rm -rf ~/.local/share/pixel-buddy ~/.config/pixel-buddy ~/.cache/pixel-buddy ~/.local/state/pixel-buddy
 ```
 
 ## Credits
