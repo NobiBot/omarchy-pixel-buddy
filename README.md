@@ -43,7 +43,7 @@ Clawd is unofficial fan art of Anthropic's mascot (see [Credits](#credits)).
 
 <table>
   <tr>
-    <td align="center"><img src="docs/img/goop-hero.gif" width="150"><br><b>Goop</b> the slime<br><code>Goop</code></td>
+    <td align="center"><img src="docs/img/goop-hero.gif" width="150"><br><b>Goop</b> the slime<br><code>goop</code></td>
     <td align="center"><img src="docs/img/clawd-hero.gif" width="150"><br><b>Clawd</b>, Claude Code's mascot<br><code>clawd</code></td>
     <td align="center"><img src="docs/img/mochi-hero.gif" width="150"><br><b>Mochi</b> the cat<br><code>mochi</code></td>
   </tr>
@@ -136,7 +136,7 @@ Every buddy design is a **pack**: a folder in `~/.local/share/pixel-buddy/packs/
 optional `pack.json` (**Folder** in the widget opens it). The packs live outside the plugin folder because
 Omarchy reloads every plugin when a file inside `~/.config/omarchy/plugins/` changes.
 
-Goop, Clawd and Mochi (see [What you get](#what-you-get)) are the packs `default`, `clawd` and `mochi`. To start a
+Goop, Clawd and Mochi (see [What you get](#what-you-get)) are the packs `goop`, `clawd` and `mochi`. To start a
 new buddy from one of them, right-click it in the widget → **Duplicate**.
 
 <details>

@@ -52,7 +52,7 @@ CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or HOME + "/.cache", "pixe
 BUILDS = os.path.join(CACHE, "packs")
 INDEX = os.path.join(CACHE, "index.json")
 # Bundled packs: templates/<id>/ holds buddy.aseprite, the same art as a PNG drawing (buddy.png +
-# buddy.json, for installs without Aseprite) and pack.json (name, geometry, phrases). "default" is Goop.
+# buddy.json, for installs without Aseprite) and pack.json (name, geometry, phrases). "goop" is Goop.
 TEMPLATES = os.path.join(PLUGIN, "templates")
 # Which bundled packs were already copied into DATA, so one the user deleted doesn't come back
 SEEDED = os.path.join(os.path.dirname(DATA), "bundled.json")
@@ -500,12 +500,12 @@ def needs_build(pid):
 # ------------------------------------------------------------------ commands
 
 def template_ids():
-    """Bundled packs, Goop ("default") first."""
+    """Bundled packs, Goop first."""
     if not os.path.isdir(TEMPLATES):
         return []
     ids = sorted(d for d in os.listdir(TEMPLATES)
                  if ID_RE.match(d) and os.path.isfile(os.path.join(TEMPLATES, d, "buddy.aseprite")))
-    return sorted(ids, key=lambda d: d != "default")
+    return sorted(ids, key=lambda d: d != "goop")
 
 
 def seeded_ids():
@@ -538,6 +538,12 @@ def cmd_init(quiet=False):
     if seeded is None:
         # Before bundled.json existed only Goop was copied, on the first start
         seeded = ["default"] if pack_ids() else []
+    if "default" in seeded:
+        # Goop's id was "default" up to 0.2.0; move its copy so it isn't added a second time
+        seeded = ["goop" if s == "default" else s for s in seeded]
+        old, new = os.path.join(DATA, "default"), os.path.join(DATA, "goop")
+        if os.path.isdir(old) and not os.path.exists(new):
+            os.rename(old, new)
     added = []
     for tid in template_ids():
         if tid in seeded:

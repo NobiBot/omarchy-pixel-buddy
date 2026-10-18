@@ -86,7 +86,7 @@ Scope {
   // Sources live in ~/.local/share/pixel-buddy/packs, outside the plugin, so edits never trip
   // Omarchy's plugin reload. bin/pixel-buddy-pack watch rebuilds a pack when its files change
   // and lists every pack in ~/.cache/pixel-buddy/index.json. Each buddy plays the pack the bar
-  // widget picked for it (~/.config/pixel-buddy/ui.json), else buddies[].pack, else "default",
+  // widget picked for it (~/.config/pixel-buddy/ui.json), else buddies[].pack, else "goop" (Goop),
   // else the user's first own pack.
   readonly property string packTool: pluginDir + "/bin/pixel-buddy-pack"
   readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/pixel-buddy"
@@ -115,7 +115,7 @@ Scope {
     if (chosen && packIndex[chosen]) return chosen
     var buddy = (config.buddies || []).filter(function(p) { return p.id === buddyId })[0]
     if (buddy && buddy.pack && packIndex[buddy.pack]) return buddy.pack
-    if (packIndex["default"]) return "default"
+    if (packIndex["goop"]) return "goop"
     // Prefer the user's own packs over Clawd, Mochi and the other bundled extras
     var own = packList.filter(function(p) { return !p.bundled })
     return own.length ? own[0].id : (packList.length ? packList[0].id : "")
@@ -239,10 +239,10 @@ Scope {
       return old && root.savePending(p.id) ? Object.assign({}, p, { pack: old.pack, name: old.name, author: old.author }) : p
     })
     list.forEach(function(p) { map[p.id] = p })
-    // Default first, then by name
+    // Goop first, then by name
     list.sort(function(a, b) {
-      if (a.id === "default") return -1
-      if (b.id === "default") return 1
+      if (a.id === "goop") return -1
+      if (b.id === "goop") return 1
       return String(a.name).localeCompare(String(b.name))
     })
     var changes = Object.assign({}, packChanges)
