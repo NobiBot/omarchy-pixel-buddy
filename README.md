@@ -39,6 +39,7 @@ LibreSprite. (An experimental built-in pixel editor lives on the `experimental/p
 
 **Three buddies to start with:** Goop, made by me, and two others (Clawd and Mochi), made by Claude Code.
 Each one has every animation and its own lines. Pick one in the bar widget, edit them to your liking, or draw your own.
+Clawd is unofficial fan art of Anthropic's mascot (see [Credits](#credits)).
 
 <table>
   <tr>
@@ -341,3 +342,8 @@ rm -rf ~/.local/share/pixel-buddy ~/.config/pixel-buddy ~/.cache/pixel-buddy ~/.
 
 Credit goes to [agent-pet](https://github.com/chthollyphile/agent-pet) (MIT), which ported its behavior from
 [dsh-pet](https://github.com/PC2005-cloud/dsh-pet) (MIT). See LICENSE.
+
+**Clawd:** Clawd is Claude Code's mascot. Claude, Claude Code and Clawd are trademarks of Anthropic. The `clawd`
+pack (`templates/clawd/` and `docs/img/clawd-hero.gif`) is unofficial fan art. Pixel Buddy isn't affiliated with,
+endorsed by or sponsored by Anthropic. The MIT license covers this project's own code and art. It doesn't cover the
+Clawd character or the `clawd` pack's art, and it grants no rights to them.
