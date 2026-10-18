@@ -113,7 +113,7 @@ New to pixel art? Start with the **[quick setup guide](docs/quick-setup.md)**: i
 your first buddy and how to place it on the canvas so it stands on the ground.
 
 Every buddy design is a **pack**: a folder in `~/.local/share/pixel-buddy/packs/` holding the art plus an
-optional `pack.json`. The plugin links it as `packs/`. The packs live outside the plugin folder because
+optional `pack.json` (**Folder** in the widget opens it). The packs live outside the plugin folder because
 Omarchy reloads every plugin when a file inside `~/.config/omarchy/plugins/` changes.
 
 **Goop**, the slime, is the pack called `default`. To start a new buddy from the slime, right-click Goop in
@@ -123,7 +123,7 @@ the widget → **Duplicate**.
 <summary>Where Goop comes from (for editing the default)</summary>
 
 On the first start the plugin copies `templates/buddy.aseprite` and `templates/pack.json` (geometry and
-phrases) into `packs/default/`. Without Aseprite it copies `templates/buddy.png` + `buddy.json` instead, a PNG
+phrases) into `~/.local/share/pixel-buddy/packs/default/`. Without Aseprite it copies `templates/buddy.png` + `buddy.json` instead, a PNG
 sheet of the same frames. After editing `templates/buddy.aseprite`, run `bin/pixel-buddy-pack template-png`
 to re-export the PNG.
 </details>

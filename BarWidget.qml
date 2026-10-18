@@ -699,7 +699,7 @@ Panel {
               }
               Button { text: "Phrases"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "What the buddy says with this pack while Claude Code or Codex works"; onClicked: root.edit("phrases") }
               Button { text: "Rebuild"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Export the pack again from its source files"; onClicked: root.service.rebuildPack(root.packId) }
-              Button { text: "Folder"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Open this pack's folder (packs/ in the plugin)"; onClicked: root.service.openPackFolder(root.packId) }
+              Button { text: "Folder"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Open this pack's folder in ~/.local/share/pixel-buddy/packs"; onClicked: root.service.openPackFolder(root.packId) }
             }
 
             // Aseprite clicked but not installed
@@ -1363,7 +1363,7 @@ Panel {
                 width: parent.width
                 wrapMode: Text.WordWrap
                 readonly property var e: root.view ? root.view.entry : null
-                text: e ? "Folder: packs/" + e.id + "\nFiles: " + (e.sources.map(function(s) { return s.file }).join(", ") || "none")
+                text: e ? "Folder: ~/.local/share/pixel-buddy/packs/" + e.id + "\nFiles: " + (e.sources.map(function(s) { return s.file }).join(", ") || "none")
                   + "\n" + Object.keys(e.animations || {}).length + " animations"
                   + (e.canvas ? " · canvas " + e.canvas[0] + "×" + e.canvas[1] : "")
                   + (e.warnings.length ? "\n⚠ " + e.warnings.join("\n⚠ ") : "")

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S python3 -I
 """Build and manage Pixel Buddy sprite packs.
 
-A pack is a folder in packs/ (a symlink to ~/.local/share/pixel-buddy/packs, so writing there
+A pack is a folder in ~/.local/share/pixel-buddy/packs (outside the plugin, so writing there
 never makes Omarchy reload its plugins). It holds any mix of:
   *.aseprite / *.ase   every tag is one animation; a file without tags is one animation named after it
   *.png + *.json       sprite sheet with an Aseprite/LibreSprite JSON export, or the simple format:
@@ -50,7 +50,8 @@ TRASH = os.path.join(os.path.dirname(DATA), "trash")
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or HOME + "/.cache", "pixel-buddy")
 BUILDS = os.path.join(CACHE, "packs")
 INDEX = os.path.join(CACHE, "index.json")
-LINK = os.path.join(PLUGIN, "packs")
+# Older versions linked DATA here; Omarchy refuses symlinks in a plugin folder, so init removes it
+OLD_LINK = os.path.join(PLUGIN, "packs")
 TEMPLATE = os.path.join(PLUGIN, "templates", "buddy.aseprite")
 # The same art as a PNG drawing (exported from TEMPLATE), for installs without Aseprite
 TEMPLATE_PNG = os.path.join(PLUGIN, "templates", "buddy.png")
@@ -437,7 +438,7 @@ def write_index(building=()):
     packs = []
     for pid in pack_ids():
         data, perr = read_pack_json(pid)
-        entry = {"id": pid, "dir": os.path.join(LINK, pid), "pack": data or {}, "packError": perr,
+        entry = {"id": pid, "dir": pack_dir(pid), "pack": data or {}, "packError": perr,
                  "name": (data or {}).get("name") or pid, "author": (data or {}).get("author") or "",
                  "sources": sources(pid), "status": "unbuilt", "builtAt": 0, "canvas": None,
                  "animations": {}, "errors": [], "warnings": []}
@@ -458,7 +459,7 @@ def write_index(building=()):
         packs.append(entry)
     with Lock("index"):
         write_json(INDEX, {"version": VERSION, "updatedAt": int(time.time() * 1000),
-                           "packsDir": LINK, "aseprite": bool(find_aseprite()), "packs": packs})
+                           "packsDir": DATA, "aseprite": bool(find_aseprite()), "packs": packs})
 
 
 def build(ids, force=False):
@@ -499,21 +500,19 @@ def needs_build(pid):
 # ------------------------------------------------------------------ commands
 
 def cmd_init(quiet=False):
-    """Create the data folder, the packs/ symlink, and a default pack on first run."""
+    """Create the data folder and a default pack on first run."""
     os.makedirs(DATA, exist_ok=True)
     os.makedirs(BUILDS, exist_ok=True)
-    if os.path.isdir(LINK) and not os.path.islink(LINK):
+    if os.path.islink(OLD_LINK):
+        os.remove(OLD_LINK)
+        log("removed the old packs/ link; packs live in %s" % DATA)
+    elif os.path.isdir(OLD_LINK):
         # A real packs/ folder (copied in by hand): move its packs into the data folder.
-        for name in os.listdir(LINK):
+        for name in os.listdir(OLD_LINK):
             if not os.path.exists(os.path.join(DATA, name)):
-                shutil.move(os.path.join(LINK, name), os.path.join(DATA, name))
-        if not os.listdir(LINK):
-            os.rmdir(LINK)
-    if not os.path.lexists(LINK):
-        os.symlink(DATA, LINK)
-        log("linked %s -> %s" % (LINK, DATA))
-    elif os.path.islink(LINK) and os.path.realpath(LINK) != os.path.realpath(DATA):
-        log("warning: %s points to %s, not %s" % (LINK, os.path.realpath(LINK), DATA))
+                shutil.move(os.path.join(OLD_LINK, name), os.path.join(DATA, name))
+        if not os.listdir(OLD_LINK):
+            os.rmdir(OLD_LINK)
     if not pack_ids() and os.path.isfile(TEMPLATE):
         d = os.path.join(DATA, "default")
         os.makedirs(d)

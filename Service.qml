@@ -81,12 +81,13 @@ Scope {
   }
 
   // ------------------------------------------------------------ Sprite packs
-  // Sources live in packs/ (a symlink to ~/.local/share/pixel-buddy/packs, so edits never trip
-  // Omarchy's plugin reload). bin/pixel-buddy-pack watch rebuilds a pack when its files change
+  // Sources live in ~/.local/share/pixel-buddy/packs, outside the plugin, so edits never trip
+  // Omarchy's plugin reload. bin/pixel-buddy-pack watch rebuilds a pack when its files change
   // and lists every pack in ~/.cache/pixel-buddy/index.json. Each buddy plays the pack the bar
   // widget picked for it (~/.config/pixel-buddy/ui.json), else buddies[].pack, else "default".
   readonly property string packTool: pluginDir + "/bin/pixel-buddy-pack"
   readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/pixel-buddy"
+  readonly property string packsDir: (Quickshell.env("XDG_DATA_HOME") || home + "/.local/share") + "/pixel-buddy/packs"
   readonly property string uiStatePath: home + "/.config/pixel-buddy/ui.json"
   property var packIndex: ({})
   property var packList: []
@@ -485,7 +486,7 @@ Scope {
 
   function openPackFolder(packId) {
     var e = packIndex[packId]
-    Quickshell.execDetached(["xdg-open", e ? e.dir : root.pluginDir + "/packs"])
+    Quickshell.execDetached(["xdg-open", e ? e.dir : root.packsDir])
   }
 
   // Notification icons come from the first buddy's pack: first frames of its waiting / success / error
