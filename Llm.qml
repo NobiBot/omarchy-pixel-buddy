@@ -35,7 +35,9 @@ Scope {
       // Only text is needed, so like claude it gets no tools. -s read-only only restricts shell commands, not connectors, plugins or web search,
       // and connectors tied to the ChatGPT account (Gmail, Drive, GitHub etc.) aren't in config.toml and --ignore-user-config can't remove them,
       // so each is turned off. The remaining apply_patch (built into some models) is kept from writing by read-only + approval_policy=never.
-      // Feature names match `codex features list` in codex-cli 0.147; an unknown name makes codex exit with an error.
+      // Feature names match `codex features list` in codex-cli 0.162; an unknown name makes codex exit with an error.
+      // Newer features that could act (code_mode, memories, in_app_browser, standalone_web_search) are off by default,
+      // and --ignore-user-config keeps them off, so they aren't listed: a removed name here would break every call.
       // Without a PROMPT argument, codex exec reads its instructions from stdin
       cmd = ["codex", "exec",
         "--ignore-user-config", "--ignore-rules",

@@ -12,7 +12,7 @@ never makes Omarchy reload its plugins). It holds any mix of:
 plus an optional pack.json (name, role mapping, geometry; the bar widget writes it).
 
 Builds go to ~/.cache/pixel-buddy/packs/<id>/ as animated WebP, padded to a 16:9 canvas
-(bottom-centred), with a manifest of loop lengths and sprite bounds. ~/.cache/pixel-buddy/index.json
+(bottom-centered), with a manifest of loop lengths and sprite bounds. ~/.cache/pixel-buddy/index.json
 lists every pack for the shell.
 
 Usage: pixel-buddy-pack init | index | build [ID…|--all] [--force] | new NAME | duplicate ID NAME
@@ -50,8 +50,6 @@ TRASH = os.path.join(os.path.dirname(DATA), "trash")
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or HOME + "/.cache", "pixel-buddy")
 BUILDS = os.path.join(CACHE, "packs")
 INDEX = os.path.join(CACHE, "index.json")
-# Older versions linked DATA here; Omarchy refuses symlinks in a plugin folder, so init removes it
-OLD_LINK = os.path.join(PLUGIN, "packs")
 TEMPLATE = os.path.join(PLUGIN, "templates", "buddy.aseprite")
 # The same art as a PNG drawing (exported from TEMPLATE), for installs without Aseprite
 TEMPLATE_PNG = os.path.join(PLUGIN, "templates", "buddy.png")
@@ -503,16 +501,6 @@ def cmd_init(quiet=False):
     """Create the data folder and a default pack on first run."""
     os.makedirs(DATA, exist_ok=True)
     os.makedirs(BUILDS, exist_ok=True)
-    if os.path.islink(OLD_LINK):
-        os.remove(OLD_LINK)
-        log("removed the old packs/ link; packs live in %s" % DATA)
-    elif os.path.isdir(OLD_LINK):
-        # A real packs/ folder (copied in by hand): move its packs into the data folder.
-        for name in os.listdir(OLD_LINK):
-            if not os.path.exists(os.path.join(DATA, name)):
-                shutil.move(os.path.join(OLD_LINK, name), os.path.join(DATA, name))
-        if not os.listdir(OLD_LINK):
-            os.rmdir(OLD_LINK)
     if not pack_ids() and os.path.isfile(TEMPLATE):
         d = os.path.join(DATA, "default")
         os.makedirs(d)
@@ -527,7 +515,7 @@ def cmd_init(quiet=False):
             write_json(os.path.join(d, "pack.json"), {"name": "Default"})
         log("created the default pack from the template")
     elif not quiet:
-        log("packs: %s" % ", ".join(pack_ids()) or "none")
+        log("packs: %s" % (", ".join(pack_ids()) or "none"))
 
 
 BLANK_LUA = """
@@ -619,6 +607,7 @@ def cmd_save(pid, text):
 
 def cmd_icons(pid, waiting, success, error):
     """Notification icons: first frame of the work-status animations, trimmed and scaled up."""
+    pack_dir(pid)  # rejects ids like "../x", which would write outside BUILDS
     out = os.path.join(BUILDS, pid, "pic")
     os.makedirs(out, exist_ok=True)
     for icon, anim in (("approval", waiting), ("done", success), ("error", error)):

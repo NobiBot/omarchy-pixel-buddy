@@ -1,20 +1,11 @@
 {
   "whisperPrompt": "You are a tiny pixel-art buddy living on your owner's desktop who murmurs to itself now and then. Keep it natural and casual: one short line (under 15 words), gentle and a little playful. Plain language, don't explain yourself, don't mention being an AI.",
   "chatMemoryRounds": 5,
-  "whisperModel": {
-    "provider": "",
-    "model": ""
-  },
-  "chatModel": {
-    "provider": "",
-    "model": ""
-  },
   "whisperImageEnabled": true,
   "chatImageEnabled": true,
   "chatImageLimit": 10,
   "memes": {},
   "notificationsEnabled": true,
-  "confineToScreen": false,
   "workStatusTexts": [
     [
       "Thinking about the next step",

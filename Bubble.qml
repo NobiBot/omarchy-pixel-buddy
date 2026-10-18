@@ -1,7 +1,7 @@
 import QtQuick
 
 // Speech bubble above the head: white rounded box with a small tail, optionally with a meme image. Takes no input (not in the overlay's mask).
-// Style taken from dsh-pet's bubble.ts (92% white, #2b2b2b).
+// Style taken from dsh-pet's bubble.ts (94% white, #2b2b2b).
 Item {
   id: bubble
 

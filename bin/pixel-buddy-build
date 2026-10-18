@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Kept for old habits: sprites now live in ~/.local/share/pixel-buddy/packs and build with pixel-buddy-pack.
-# Usage: pixel-buddy-build [--clean]   (--clean = rebuild every pack from scratch)
-set -euo pipefail
-here=$(cd "$(dirname "$0")" && pwd)
-if [[ ${1:-} == --clean ]]; then exec "$here/pixel-buddy-pack" build --all --force; fi
-exec "$here/pixel-buddy-pack" build --all

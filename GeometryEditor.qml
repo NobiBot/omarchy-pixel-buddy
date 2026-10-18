@@ -117,6 +117,7 @@ PanelWindow {
         height: Math.max(title.implicitHeight, controls.implicitHeight)
 
         Text {
+          textFormat: Text.PlainText
           id: title
           anchors.verticalCenter: parent.verticalCenter
           text: (win.view ? win.view.entry.name : "") + "  ·  geometry"
@@ -145,6 +146,7 @@ PanelWindow {
             onClicked: win.frame = Math.max(0, win.frame - 1)
           }
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             text: "frame " + (win.frame + 1) + " / " + Math.max(1, img.frameCount)
             color: win.dim
@@ -236,6 +238,7 @@ PanelWindow {
           }
 
           Text {
+            textFormat: Text.PlainText
             anchors.bottom: parent.top
             anchors.bottomMargin: 4
             text: "hitbox · click, drag, speech bubble"
@@ -281,6 +284,7 @@ PanelWindow {
           color: win.feetColor
 
           Text {
+            textFormat: Text.PlainText
             anchors.bottom: parent.top
             anchors.left: parent.left
             anchors.margins: 6
@@ -301,6 +305,7 @@ PanelWindow {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: summary
         width: stage.width
         elide: Text.ElideRight

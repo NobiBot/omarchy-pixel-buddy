@@ -45,25 +45,34 @@ fi
 # $1 = file, $2 = agent name, $3 = event list JSON
 patch_file() {
   local file=$1 agent=$2 events=$3
+  # A symlinked settings file (stow, chezmoi…) is edited where it points, so the link stays
+  file=$(readlink -f "$file")
   mkdir -p "$(dirname "$file")"
   [[ -s $file ]] || echo '{}' > "$file"
-  cp "$file" "$file.bak-pixel-buddy-$(date +%Y%m%d%H%M%S)"
 
+  # Temp file next to the target, so the final mv is an atomic rename; removed if jq fails
   local tmp
-  tmp=$(mktemp)
-  jq --arg cmd "$HOOK $agent" --argjson events "$events" --arg mode "$mode" '
-    # First remove every pixel-buddy-hook entry, then drop matcher groups and events left empty
+  tmp=$(mktemp "$file.pixel-buddy-XXXXXX")
+  # The hook path is quoted for the shell that runs it, in case it contains spaces
+  jq --arg cmd "$(printf '%q' "$HOOK") $agent" --argjson events "$events" --arg mode "$mode" '
+    # First remove every pixel-buddy-hook entry, then drop matcher groups and events left empty.
+    # Entries that aren'"'"'t lists of matcher groups with a hooks list are left exactly as they are.
     .hooks = ((.hooks // {})
-      | with_entries(.value = [.value[]
-          | .hooks = [.hooks[] | select((.command // "") | test("pixel-buddy-hook") | not)]
-          | select(.hooks | length > 0)])
-      | with_entries(select(.value | length > 0)))
+      | with_entries(if (.value | type) == "array" then .value = [.value[]
+          | if type == "object" and (.hooks | type) == "array" then
+              (.hooks = [.hooks[] | select((.command? // "") | tostring | test("pixel-buddy-hook") | not)]
+               | select(.hooks | length > 0))
+            else . end]
+          else . end)
+      | with_entries(select(.value != [])))
     | if $mode == "install" then
         reduce $events[] as $e (.;
           .hooks[$e] = ((.hooks[$e] // []) + [{ hooks: [{ type: "command", command: $cmd, timeout: 5 }] }]))
       else . end
     | if (.hooks | length) == 0 then del(.hooks) else . end
-  ' "$file" > "$tmp"
+  ' "$file" > "$tmp" || { rm -f "$tmp"; echo "couldn't update $file (is it valid JSON?)" >&2; exit 1; }
+  chmod --reference="$file" "$tmp"
+  cp -p "$file" "$file.bak-pixel-buddy-$(date +%Y%m%d%H%M%S)"
   mv "$tmp" "$file"
   echo "$mode: $file"
 }

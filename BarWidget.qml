@@ -230,7 +230,7 @@ Panel {
     flick.contentY = 0
   }
 
-  // omarchy-shell pixel-buddy-studio toggle | open | close | edit [roles|behavior|geometry|info|phrases|draw]
+  // omarchy-shell pixel-buddy-studio toggle | open | close | edit [roles|behavior|geometry|phrases|info]
   IpcHandler {
     target: root.ipcTarget
     function open(): void { root.open() }
@@ -329,6 +329,7 @@ Panel {
           spacing: Style.space(12)
 
           Text {
+            textFormat: Text.PlainText
             visible: !root.service
             width: parent.width
             text: "The buddy service isn't running. Check that nobi.pixel-buddy is enabled in shell.json."
@@ -356,6 +357,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               id: titleText
               anchors.left: root.mode !== "home" ? backBtn.right : parent.left
               anchors.leftMargin: root.mode !== "home" ? Style.spacing.lg : 0
@@ -386,6 +388,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               visible: root.mode === "edit"
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
@@ -417,6 +420,7 @@ Panel {
               spacing: Style.spacing.md
 
               Text {
+                textFormat: Text.PlainText
                 text: "Finish setup"
                 color: root.fg
                 font.family: root.fontFamily
@@ -424,6 +428,7 @@ Panel {
                 font.bold: true
               }
               Text {
+                textFormat: Text.PlainText
                 visible: setupCard.needPillow
                 width: parent.width
                 wrapMode: Text.WordWrap
@@ -433,6 +438,7 @@ Panel {
                 font.pixelSize: Style.font.bodySmall
               }
               Text {
+                textFormat: Text.PlainText
                 visible: setupCard.agents.length > 0
                 width: parent.width
                 wrapMode: Text.WordWrap
@@ -504,6 +510,7 @@ Panel {
               color: Color.popups.background
               opacity: 0.92
               Text {
+                textFormat: Text.PlainText
                 id: roleChip
                 anchors.centerIn: parent
                 text: root.previewAnim ? root.previewAnim : root.roleLabel(root.shownRole.key) + " ← " + (root.shownAnim || "nothing")
@@ -541,6 +548,7 @@ Panel {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: Style.spacing.xxs
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   text: root.view ? root.view.entry.name : ""
                   elide: Text.ElideRight
@@ -550,6 +558,7 @@ Panel {
                   font.bold: true
                 }
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   text: root.view ? (root.view.entry.author ? "by " + root.view.entry.author + " · " : "") + root.formatsOf(root.view.entry) : ""
                   elide: Text.ElideRight
@@ -570,6 +579,7 @@ Panel {
                 onClicked: root.usePack()
               }
               Text {
+                textFormat: Text.PlainText
                 visible: root.inUse
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -584,6 +594,7 @@ Panel {
               width: parent.width
               height: mappedText.implicitHeight
               Text {
+                textFormat: Text.PlainText
                 id: mappedText
                 anchors.left: parent.left
                 text: root.view ? root.view.resolved.mapped + " / " + root.view.resolved.total + " roles mapped" : ""
@@ -592,6 +603,7 @@ Panel {
                 font.pixelSize: Style.font.bodySmall
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.right: parent.right
                 readonly property int missing: root.view ? root.view.resolved.total - root.view.resolved.mapped : 0
                 text: missing > 0 ? missing + " not mapped (skipped)" : "all set"
@@ -602,6 +614,7 @@ Panel {
             }
 
             Text {
+              textFormat: Text.PlainText
               visible: text !== ""
               width: parent.width
               text: root.statusText()
@@ -660,6 +673,7 @@ Panel {
                       playing: thumbHover.hovered
                     }
                     Text {
+                      textFormat: Text.PlainText
                       id: thumbName
                       anchors.bottom: parent.bottom
                       anchors.bottomMargin: Style.spacing.sm
@@ -700,6 +714,7 @@ Panel {
                   border.width: 1
                   border.color: Qt.rgba(root.fg.r, root.fg.g, root.fg.b, 0.25)
                   Text {
+                    textFormat: Text.PlainText
                     anchors.centerIn: parent
                     text: "+ New"
                     color: root.dim
@@ -751,6 +766,7 @@ Panel {
               Button { id: cancelBtn; text: "Cancel"; bordered: true; onClicked: root.creating = false }
             }
             Text {
+              textFormat: Text.PlainText
               visible: root.creating
               width: parent.width
               wrapMode: Text.WordWrap
@@ -808,6 +824,7 @@ Panel {
                 spacing: Style.spacing.md
 
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   wrapMode: Text.WordWrap
                   text: "Aseprite isn't installed. You can draw this buddy in another pixel-art editor such as LibreSprite (free) and export a GIF or PNG strip into the pack's folder; the file name becomes the animation name."
@@ -816,6 +833,7 @@ Panel {
                   font.pixelSize: Style.font.bodySmall
                 }
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   wrapMode: Text.WordWrap
                   text: "To install Aseprite: yay -S aseprite (it builds from source, which takes a while). LibreSprite: sudo pacman -S libresprite."
@@ -909,6 +927,7 @@ Panel {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width * 0.38
                         Text {
+                          textFormat: Text.PlainText
                           width: parent.width
                           text: roleRow.modelData.label
                           elide: Text.ElideRight
@@ -917,6 +936,7 @@ Panel {
                           font.pixelSize: Style.font.body
                         }
                         Text {
+                          textFormat: Text.PlainText
                           text: roleRow.source === "guess" ? "guessed" : roleRow.source === "none" ? (roleRow.modelData.key === "idle" ? "uses the first animation" : "skipped") : ""
                           visible: text !== ""
                           color: roleRow.source === "none" ? root.warn : root.dim
@@ -969,6 +989,7 @@ Panel {
                               value = ""
                             }
                             Text {
+                              textFormat: Text.PlainText
                               anchors.centerIn: parent
                               text: "+ add"
                               color: root.dim
@@ -998,6 +1019,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 visible: root.view && root.view.resolved.unused.length > 0
                 width: parent.width
                 wrapMode: Text.WordWrap
@@ -1007,6 +1029,7 @@ Panel {
                 font.pixelSize: Style.font.caption
               }
               Text {
+                textFormat: Text.PlainText
                 visible: root.view && root.view.resolved.missing.length > 0
                 width: parent.width
                 wrapMode: Text.WordWrap
@@ -1030,6 +1053,7 @@ Panel {
               spacing: Style.spacing.md
 
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 wrapMode: Text.WordWrap
                 text: "How long each animation keeps looping when it plays, in seconds (0 = play once). Walks loop for the whole trip. Between work events the buddy picks idle, walk, turn and random-action animations by their % chance; ones on auto share what the others leave."
@@ -1042,6 +1066,7 @@ Panel {
                 width: parent.width
                 height: minPlay.height
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   text: "shortest loop, all animations"
                   color: root.fg
@@ -1084,6 +1109,7 @@ Panel {
                       id: animText
                       anchors.verticalCenter: parent.verticalCenter
                       Text {
+                        textFormat: Text.PlainText
                         id: animName
                         text: animRow.modelData
                         color: root.fg
@@ -1091,6 +1117,7 @@ Panel {
                         font.pixelSize: Style.font.body
                       }
                       Text {
+                        textFormat: Text.PlainText
                         text: "animation loop length " + (animRow.ms / 1000).toFixed(1) + " s" + (animRow.isWalk ? " · walk" : animRow.isAction ? " · random action" : "")
                         color: root.dim
                         font.family: root.fontFamily
@@ -1098,6 +1125,7 @@ Panel {
                       }
                       // What the seconds field means in plays, the way Buddy.repeatsFor rounds it: whole loops, at least the time set
                       Text {
+                        textFormat: Text.PlainText
                         readonly property real loopSec: animRow.ms / 1000
                         readonly property int plays: playField.value <= 0 || loopSec <= 0 ? 1 : Math.ceil(playField.value / loopSec - 1e-6)
                         text: animRow.isWalk ? "loops for the whole walk"
@@ -1135,6 +1163,7 @@ Panel {
                     width: parent.width
                     height: extraField.height
                     Text {
+                      textFormat: Text.PlainText
                       anchors.verticalCenter: parent.verticalCenter
                       text: "walk speed, canvas px per second"
                       color: root.dim
@@ -1146,7 +1175,7 @@ Panel {
                       anchors.right: parent.right
                       fieldWidth: Style.space(96)
                       from: 1; to: 400
-                      value: Number((animRow.beh.speed || {})[animRow.modelData]) || Number(((root.service.config.animations || {}).moves || {}).default.speed) || 24
+                      value: Number((animRow.beh.speed || {})[animRow.modelData]) || Number((((root.service.config.animations || {}).moves || {}).default || {}).speed) || 24
                       onModified: function(v) { root.setBehavior("speed", animRow.modelData, v) }
                     }
                   }
@@ -1157,6 +1186,7 @@ Panel {
                     width: parent.width
                     height: chanceField.height
                     Text {
+                      textFormat: Text.PlainText
                       anchors.verticalCenter: parent.verticalCenter
                       text: animRow.chainEntry && animRow.chainEntry.set ? "animation chance %" : "animation chance % (auto)"
                       color: root.dim
@@ -1196,6 +1226,7 @@ Panel {
                 width: parent.width
                 height: facingGroup.height
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   text: "drawn facing"
                   color: root.fg
@@ -1220,12 +1251,14 @@ Panel {
                 Column {
                   anchors.verticalCenter: parent.verticalCenter
                   Text {
+                    textFormat: Text.PlainText
                     text: "size on screen"
                     color: root.fg
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
                   }
                   Text {
+                    textFormat: Text.PlainText
                     readonly property var g: root.view ? root.view.geometry : null
                     text: g ? (g.scale > 0 ? g.width * g.scale + " px wide (" + g.scale + "× the canvas)" : "buddy's own size setting") : ""
                     color: root.dim
@@ -1245,6 +1278,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 wrapMode: Text.WordWrap
                 readonly property var g: root.view ? root.view.geometry : null
@@ -1288,6 +1322,7 @@ Panel {
 
                   // Group heading before the first work state and the first animation
                   Text {
+                    textFormat: Text.PlainText
                     visible: section.modelData.first
                     width: parent.width
                     topPadding: section.work ? 0 : Style.spacing.lg
@@ -1298,6 +1333,7 @@ Panel {
                     font.bold: true
                   }
                   Text {
+                    textFormat: Text.PlainText
                     visible: section.modelData.first
                     width: parent.width
                     wrapMode: Text.WordWrap
@@ -1325,6 +1361,7 @@ Panel {
                     fontFamily: root.fontFamily
                   }
                   Text {
+                    textFormat: Text.PlainText
                     visible: section.roles !== ""
                     width: parent.width
                     elide: Text.ElideRight
@@ -1334,6 +1371,7 @@ Panel {
                     font.pixelSize: Style.font.caption
                   }
                   Text {
+                    textFormat: Text.PlainText
                     visible: section.silence >= 0.5
                     width: parent.width
                     text: "says nothing " + Math.round(section.silence) + "% of the time"
@@ -1371,6 +1409,7 @@ Panel {
                           anchors.right: parent.right
                           spacing: Style.spacing.sm
                           Text {
+                            textFormat: Text.PlainText
                             anchors.verticalCenter: parent.verticalCenter
                             text: lineRow.chance !== null ? "chance %" : "chance % (auto)"
                             color: root.dim
@@ -1460,6 +1499,7 @@ Panel {
               }
 
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 wrapMode: Text.WordWrap
                 readonly property var e: root.view ? root.view.entry : null
@@ -1484,11 +1524,16 @@ Panel {
                   onClicked: root.service.duplicatePack(root.packId, (root.view ? root.view.entry.name : "Pack") + " copy", function(id) { root.showPack(id) })
                 }
                 Button {
-                  text: root.confirmDelete ? "Really delete?" : "Delete"
+                  // Same rule as the right-click menu: the last pack stays
+                  readonly property bool onlyPack: !root.service || root.service.packList.length <= 1
+                  enabled: !onlyPack
+                  opacity: onlyPack ? 0.4 : 1
+                  text: onlyPack ? "Delete (last pack)" : root.confirmDelete ? "Really delete?" : "Delete"
                   bordered: true
                   selected: root.confirmDelete
-                  tooltipText: "Moves the pack to ~/.local/share/pixel-buddy/trash"
+                  tooltipText: onlyPack ? "A buddy needs at least one pack" : "Moves the pack to ~/.local/share/pixel-buddy/trash"
                   onClicked: {
+                    if (onlyPack) return
                     if (!root.confirmDelete) {
                       root.confirmDelete = true
                       return
@@ -1506,6 +1551,7 @@ Panel {
 
           // ---------- messages from pack commands
           Text {
+            textFormat: Text.PlainText
             visible: root.service && root.service.packMessage !== ""
             width: parent.width
             wrapMode: Text.WordWrap
@@ -1553,6 +1599,7 @@ Panel {
           color: itemHover.hovered && active ? Color.menu.selectedBackground : "transparent"
           opacity: active ? 1 : 0.4
           Text {
+            textFormat: Text.PlainText
             anchors.left: parent.left
             anchors.leftMargin: Style.spacing.lg
             anchors.verticalCenter: parent.verticalCenter
@@ -1573,6 +1620,7 @@ Panel {
           spacing: Style.spacing.xxs
 
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             leftPadding: Style.spacing.lg
             bottomPadding: Style.spacing.xs
@@ -1621,6 +1669,7 @@ Panel {
             width: parent.width
             spacing: Style.spacing.sm
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               leftPadding: Style.spacing.lg
               rightPadding: Style.spacing.lg

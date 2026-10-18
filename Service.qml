@@ -19,8 +19,10 @@ Scope {
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string pluginDir: decodeURIComponent(String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "").replace(/\/$/, ""))
-  readonly property string userConfigPath: home + "/.config/pixel-buddy/config.jsonc"
-  readonly property string stateDir: home + "/.local/state/pixel-buddy"
+  readonly property string configDir: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/pixel-buddy"
+  readonly property string userConfigPath: configDir + "/config.jsonc"
+  // Same as bin/pixel-buddy-usage, which writes its usage records under here
+  readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || home + "/.local/state") + "/pixel-buddy"
   // Directory of the hook event socket (0700), same as bin/pixel-buddy-hook
   readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") + "/pixel-buddy"
 
@@ -88,7 +90,7 @@ Scope {
   readonly property string packTool: pluginDir + "/bin/pixel-buddy-pack"
   readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/pixel-buddy"
   readonly property string packsDir: (Quickshell.env("XDG_DATA_HOME") || home + "/.local/share") + "/pixel-buddy/packs"
-  readonly property string uiStatePath: home + "/.config/pixel-buddy/ui.json"
+  readonly property string uiStatePath: configDir + "/ui.json"
   property var packIndex: ({})
   property var packList: []
   property var uiState: ({ buddies: {} })
@@ -180,7 +182,7 @@ Scope {
       fps: Number(sp.fps) || 10,
       canvasW: geo.width,
       canvasH: geo.height,
-      // Hitbox recentred on the box; offsetX is how far the drawing shifts to match (Buddy.qml stage)
+      // Hitbox recentered on the box; offsetX is how far the drawing shifts to match (Buddy.qml stage)
       offsetX: 0.5 - (geo.hitBox[0] + geo.hitBox[2]) / 2 / geo.width,
       hitBox: {
         x0: geo.hitBox[0] / geo.width + 0.5 - (geo.hitBox[0] + geo.hitBox[2]) / 2 / geo.width,
@@ -362,16 +364,19 @@ Scope {
     var todo = agentsToConnect
     if (!todo.length || hooksBusy) return
     hooksBusy = true
+    hooksInstall.agents = todo
     hooksInstall.command = [hooksTool].concat(todo.length === 1 ? ["--" + todo[0] + "-only"] : [])
     hooksInstall.running = true
   }
 
   Process {
     id: hooksInstall
+    property var agents: []
     stderr: StdioCollector { id: hooksInstallErr }
     onExited: function(exitCode) {
       root.hooksBusy = false
-      if (exitCode === 0) root.showPackMessage("Connected. New Claude Code and Codex sessions now show on the buddy.", false)
+      var names = hooksInstall.agents.map(function(a) { return a === "codex" ? "Codex" : "Claude Code" }).join(" and ")
+      if (exitCode === 0) root.showPackMessage("Connected. New " + names + " sessions now show on the buddy.", false)
       else root.showPackMessage(hooksInstallErr.text.trim() || "Could not install the agent hooks", true)
       hooksStatus.running = true
     }
@@ -463,7 +468,11 @@ Scope {
     delete rest[id]
     pendingSaves = rest
     saveProc.packId = id
-    saveProc.command = [packTool, "save", id, JSON.stringify(packJsonOf(id))]
+    // pack.json goes through stdin ("-"): process arguments are visible to every user, and Linux
+    // caps a single argument at 128 KB, which a pack with many phrases could pass
+    saveProc.input = JSON.stringify(packJsonOf(id))
+    saveProc.command = [packTool, "save", id, "-"]
+    saveProc.stdinEnabled = true
     saveProc.running = true
   }
 
@@ -475,6 +484,13 @@ Scope {
   Process {
     id: saveProc
     property string packId: ""
+    property string input: ""
+    // Close stdin right after writing; pixel-buddy-pack reads until EOF
+    onStarted: {
+      saveProc.write(saveProc.input)
+      saveProc.stdinEnabled = false
+      saveProc.input = ""
+    }
     stderr: StdioCollector { id: saveErr }
     onExited: function(exitCode) {
       if (exitCode !== 0) root.showPackMessage(saveErr.text.trim() || "Could not save pack.json", true)
@@ -945,7 +961,7 @@ Scope {
     return { provider: provider, model: (provider === "codex" ? a.codexModel : a.claudeModel) || "" }
   }
 
-  // ------------------------------------------------------------ Step summaries (stepSummary.enabled, off by default)
+  // ------------------------------------------------------------ Step summaries (stepSummary.mode, off by default)
   readonly property var stepSummaryCfg: config.stepSummary || ({})
 
   // off / transcript (reads what the agent itself wrote in the transcript) / model (summarized by autoModel); the old form enabled: true counts as model
@@ -1115,8 +1131,10 @@ Scope {
     }
   }
 
-  // Chat memory: { buddyId: [{ q, a, t }] }, saved in full; each request uses only the last chatMemoryRounds rounds
+  // Chat memory: { buddyId: [{ q, a, t }] }, the last memoryKeep rounds per buddy (or chatMemoryRounds if
+  // that's more); each request uses only the last chatMemoryRounds rounds
   property var memory: ({})
+  readonly property int memoryKeep: 100
 
   function chatHistory(buddyId) {
     return memory[buddyId] || []
@@ -1124,7 +1142,8 @@ Scope {
 
   function rememberChat(buddyId, q, a) {
     var next = Object.assign({}, memory)
-    next[buddyId] = chatHistory(buddyId).concat([{ q: q, a: a, t: Date.now() }])
+    var keep = Math.max(memoryKeep, Number(config.chatMemoryRounds) || 0)
+    next[buddyId] = chatHistory(buddyId).concat([{ q: q, a: a, t: Date.now() }]).slice(-keep)
     memory = next
     memoryFile.setText(JSON.stringify(next, null, 2))
   }
@@ -1145,7 +1164,7 @@ Scope {
   // Chat memory, model prompt files and the event socket are only accessible to this user; listening starts once the directories exist
   Process {
     running: true
-    command: ["bash", "-c", 'mkdir -p "$0"; mkdir -p -m 700 "$@"; chmod 700 "$@"', root.home + "/.config/pixel-buddy", root.stateDir, root.runtimeDir]
+    command: ["bash", "-c", 'mkdir -p "$0"; mkdir -p -m 700 "$@"; chmod 700 "$@"', root.configDir, root.stateDir, root.runtimeDir]
     onExited: function(exitCode) {
       if (exitCode === 0) eventServer.start()
       else console.warn("[pixel-buddy] couldn't create " + root.runtimeDir + ", hook events won't arrive")

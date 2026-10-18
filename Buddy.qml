@@ -45,8 +45,8 @@ Item {
   property bool dragging: false
   // Short loops (pixel animations) repeat a few times before counting as played once; see repeatsFor()
   property int repeatLeft: 0
-  // A loop counts when currentFrame wraps back to the start, not when the last frame appears: the builder merges identical
-  // neighbouring frames, so a held final pose can be one long frame. After a source change currentFrame can also jump
+  // A loop counts when currentFrame wraps back to the start, not when the last frame appears: the WebP encoder merges identical
+  // neighboring frames, so a held final pose can be one long frame. After a source change currentFrame can also jump
   // around, so a wrap only counts once at least half the loop has played (by time: Qt skips frames when busy).
   property real cycleStart: 0
   property int lastFrame: 0
@@ -89,7 +89,6 @@ Item {
     return cfg.workStatusEnabled !== false && ws && !WS.isTerminal(ws.state) ? ws : null
   }
 
-  // Play name; nextOnce = call handleEnded after one play, otherwise loop forever
   // Why the current animation plays: "idle", "turn", "drag", "click", or "" (anything else).
   // One animation can fill several roles (idle doubling as drag), so the role, not the name,
   // decides how long it loops and what comes after it.
@@ -101,6 +100,7 @@ Item {
     return !!pool && pool.indexOf(name) >= 0
   }
 
+  // Play name; nextOnce = call handleEnded after one play, otherwise loop forever
   function play(name, nextOnce, role) {
     if (!name) return
     loopEnd.stop()
@@ -159,8 +159,8 @@ Item {
 
   // A pixel animation loop is often under a second: idle / small actions / moves / event animations repeat whole loops until at least sprite.minPlaySec seconds.
   // Turns, drags and click reactions play once by default; sprite.playSec can set seconds per animation name (0 = play once).
-  // The real length of one loop (seconds): prefer the sum of frame durations pixel-buddy-build writes into the manifest
-  // (Aseprite merges identical neighbouring frames into one long frame on export, so frames / fps comes out too short)
+  // The real length of one loop (seconds): prefer the sum of frame durations pixel-buddy-pack writes into the manifest
+  // (the WebP encoder merges identical neighboring frames into one long frame, so frames / fps comes out too short)
   function cycleSec(name, frameCount) {
     var ms = Number(rt.durations[name])
     return ms > 0 ? ms / 1000 : frameCount / fps
@@ -395,7 +395,7 @@ Item {
       if (t <= m.leadSec) ratioX = m.startRatio
       else if (t >= m.duration - m.tailSec) ratioX = m.targetRatio
       else ratioX = m.startRatio + m.dir * m.totalRatio * ((t - m.leadSec) / m.travel)
-      // Round: nearest-neighbour sampling of pixel art at fractional coordinates flickers
+      // Round: nearest-neighbor sampling of pixel art at fractional coordinates flickers
       buddy.x = Math.round(ratioX * buddy.areaW - buddy.size / 2)
       buddy.y = Math.round(m.startYRatio * buddy.areaH - buddy.boxH / 2)
       if (t >= m.duration - m.tailSec) buddy.moveDrive = null
@@ -762,13 +762,14 @@ Item {
   Bubble {
     id: bubble
     content: buddy.bubbleContent
-    memeDir: Qt.resolvedUrl("assets/memes/")
+    // Outside the plugin, like the packs: plugin updates replace the plugin folder
+    memeDir: "file://" + encodeURI(buddy.service.configDir) + "/memes/"
     readonly property var fontCfg: buddy.service.config.bubbleFont || ({})
     // With no font set, use Noto Sans; if it isn't installed, fontconfig falls back to another font
     fontFamily: fontCfg.family || (fontCfg.file ? "" : "Noto Sans")
     fontFile: fontCfg.file ? String(fontCfg.file).replace(/^~(?=\/)/, buddy.service.home) : ""
     fontSize: Number(fontCfg.size) > 0 ? Number(fontCfg.size) : 14
-    // Centred above the head, kept on screen
+    // Centered above the head, kept on screen
     readonly property real headY: buddy.bottomPad + buddy.hitBox.y0 * buddy.boxH
     x: Math.max(-buddy.x + 4, Math.min(buddy.size / 2 - width / 2, buddy.areaW - buddy.x - width - 4))
     y: Math.max(-buddy.y + 4, headY - height + 6)

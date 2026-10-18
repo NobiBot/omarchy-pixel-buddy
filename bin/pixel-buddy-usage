@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S python3 -I
 """pixel-buddy-usage: collect Claude Code / Codex rate limits into usage records.
 
 Fallback for environments without Omarchy. On Omarchy, pixel-buddy reads the
@@ -32,6 +32,7 @@ import re
 import select
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.error
@@ -54,11 +55,11 @@ def number(value: Any) -> int:
 
 
 def state_dir() -> Path:
-  return Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "pixel-buddy" / "usage"
+  return Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state") / "pixel-buddy" / "usage"
 
 
 def cache_root() -> Path:
-  root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "pixel-buddy" / "usage"
+  root = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "pixel-buddy" / "usage"
   root.mkdir(parents=True, exist_ok=True)
   return root
 
@@ -440,7 +441,7 @@ def main() -> int:
     try:
       record = collectors[agent]()
     except Exception as exc:
-      print(f"pixel-buddy-usage: {agent} collector failed: {exc}", file=os.sys.stderr)
+      print(f"pixel-buddy-usage: {agent} collector failed: {exc}", file=sys.stderr)
       status = 1
       continue
     if record is None:

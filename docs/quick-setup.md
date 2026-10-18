@@ -35,7 +35,7 @@ This makes a pack with a blank 128 × 72 canvas, switches your buddy to it and o
 ![The canvas, the feet line and the hitbox](img/canvas.png)
 
 1. Draw your character **facing left**, standing near the bottom of the canvas. Goop is about 30 pixels wide and 25 tall. Small is fine: it gets scaled up.
-2. Keep the background **transparent**. Don't fill it with a colour.
+2. Keep the background **transparent**. Don't fill it with a color.
 3. Save (**Ctrl+S**). About a second later the buddy appears on your desktop.
 
 The plugin works out two things from your idle animation:
@@ -80,7 +80,7 @@ Anything you leave out is simply skipped.
 The feet line and hitbox come from idle and are used for **every** animation. So in every frame of every animation:
 
 1. **Feet on the same row** as in idle. Higher and the buddy floats; lower and it sinks into the ground. (A jump is fine: the feet leave the row for a moment and come back.)
-2. **Same spot left to right.** The character can be off-centre, but always the same off-centre, or it jumps sideways when the animation changes.
+2. **Same spot left to right.** The character can be off-center, but always the same off-center, or it jumps sideways when the animation changes.
 3. **Facing left**, all of them. (If you drew everything facing right, set *drawn facing: Right* in **Edit pack → Geometry** instead.)
 4. **One canvas size** for the whole pack. Keep everything in one Aseprite file and this takes care of itself.
 
@@ -93,7 +93,7 @@ Use a whole number so every pixel stays a crisp square.
 
 ## If it doesn't sit right
 
-Open **Edit pack → Geometry → Open geometry editor**. Pick the idle animation and click **Fit to sprite**, or drag the red feet line and the blue hitbox yourself.
+Open **Edit pack → Geometry → Open geometry editor**. Pick the idle animation and click **Fit to sprite**, or drag the green feet line and the hitbox box (drawn in your theme's accent color) yourself.
 The buddy follows live; **Save** keeps it.
 
 | Problem | Fix |

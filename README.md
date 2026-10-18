@@ -158,7 +158,7 @@ across the screen at the pack's walk speed (Behavior tab, canvas pixels per seco
 it faces. With a **turn** animation it turns around now and then; without one it picks a direction
 for every walk and simply flips. To start a walk right away, right-click the buddy → **Actions** → **Move** → the walk.
 
-The buddy is centred on its hitbox, so a character drawn off-centre on the canvas still walks and
+The buddy is centered on its hitbox, so a character drawn off-center on the canvas still walks and
 flips in place; set the hitbox around the body with the geometry editor's **Fit to sprite**.
 
 ## The bar widget
@@ -219,7 +219,7 @@ Each buddy's pack choice is stored in `~/.config/pixel-buddy/ui.json`. A buddy c
   "minPlaySec": 5,
   "roles": {                                 // only the roles you set; the rest are guessed
     "idle": ["Stand"], "walk": ["run_cycle"], "clicks": ["Boing", "Blush"], "actions": ["Nap", "Dance"],
-    "workStatus": ["Think", "Type", "Read", "Wait", "Yay", "Oops"],   // null = guess, "" = idle
+    "workStatus": ["Think", "Type", "Read", "Wait", "Yay", "Oops"],   // null = guess, "" = skip (no animation)
     "balance": [null, null, null, null, "Tired", "Empty"]
   },
   "behavior": { "playSec": { "Dance": 0 }, "speed": { "run_cycle": 30 }, "chance": { "Nap": 5 } },  // chance: % picked next, left out = auto
@@ -274,8 +274,29 @@ Each **top-level** key you write replaces the default key as a whole. So if you 
 - **Timing:** the builder records each animation's real loop length, so held frames and per-frame durations are timed correctly.
 - **`size`** is the on-screen width when the pack sets no `scale`. Keep it a whole multiple of the canvas width (384 = 128 × 3) so pixels stay square and even.
 - **`whisperPrompt`** is the buddy's personality for murmurs and chat.
-- **Stickers:** create `assets/memes/` in the plugin folder, put PNGs in it, and list them under `memes` as `"file name without .png": "when to use it"`. Chat and murmur bubbles can then show them.
-- **Other options** (physics, usage, LLM, step summaries) work like the original. See the [agent-pet configuration reference](https://github.com/chthollyphile/agent-pet#configuration).
+- **Stickers:** put PNGs in `~/.config/pixel-buddy/memes/` and list them under `memes` as `"file name without .png": "when to use it"`. Chat and murmur bubbles can then show them. (They live outside the plugin folder so plugin updates don't remove them.)
+- **`physics`** (gravity, bounce, throw power) works like the original; see the [agent-pet configuration reference](https://github.com/chthollyphile/agent-pet#configuration).
+
+The other options, with their defaults:
+
+| Key | Default | What it does |
+|---|---|---|
+| `agents` | `{ "claude": true, "codex": true }` | Which agents' hook events the buddy follows |
+| `notificationsEnabled` | `true` | Desktop notifications for waiting / done / error |
+| `notify.onlyWhenUnfocused` | `true` | Skip the notification when the agent's terminal is the focused window |
+| `workStatusTexts` | six lists of lines | Work-status bubble lines for packs without their own `phrases` |
+| `workStatusDetail` | `false` | Add the current tool and its command or file under the bubble line |
+| `stepSummary.mode` | `"off"` | `"transcript"` shows the agent's own latest words; `"model"` asks `autoModel` for a one-line summary every `stepSummary.intervalSec` (60) seconds |
+| `llm` | `{ "provider": "claude", "claudeModel": "haiku", "codexModel": "" }` | The CLI and model for murmurs and chat |
+| `autoModel` | `{ "provider": "claude", "claudeModel": "haiku", "codexModel": "gpt-5.6-luna" }` | The CLI and model for automatic tasks (step summaries, timed murmurs) |
+| `whisperAuto` | `false` | Murmur on a timer (`eventsRefreshSec.whisper`, 300 s), skipped while an agent is busy |
+| `chatMemoryRounds` | `5` | How many past chat rounds each request includes (the last 100 are kept in `~/.local/state/pixel-buddy/memory.json`) |
+| `usage` | `{ "agent": "auto", "source": "auto", "refreshSec": 900 }` | Whose limits to show (`auto` = the last agent seen), where they come from (`omarchy`, `builtin` or `auto`) and how often to refresh them |
+| `eventsRefreshSec.balance` | `1800` | How often the buddy shows its usage mood on its own |
+| `clickAction` | `"react"` | `"usage"` makes a click show usage instead of a click reaction |
+| `bubbleFont` | `{ "family": "", "file": "", "size": 14 }` | Bubble font: an installed family, or a font file path (`~` allowed) |
+| `layer` | `"top"` | `"overlay"` keeps the buddy above fullscreen windows |
+| `whisperImageEnabled`, `chatImageEnabled`, `chatImageLimit` | `true`, `true`, `10` | Whether murmurs and chat may show stickers, and how many sticker names chat offers the model |
 
 ## Commands
 

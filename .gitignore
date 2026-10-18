@@ -1,4 +1,2 @@
-# Old packs/ link (removed by bin/pixel-buddy-pack init); packs live in ~/.local/share/pixel-buddy/packs
-/packs
 __pycache__/
 *.pyc
