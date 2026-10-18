@@ -39,16 +39,31 @@ LibreSprite. (An experimental built-in pixel editor lives on the `experimental/p
 
 ## 1. Install
 
+Install the packages it needs, then add the plugin:
+
 ```bash
-git clone https://github.com/NobiBot/omarchy-pixel-buddy ~/.config/omarchy/plugins/nobi.pixel-buddy
+omarchy pkg add jq socat libnotify inotify-tools python-pillow qt6-imageformats
+omarchy plugin add https://github.com/NobiBot/omarchy-pixel-buddy --enable
 ```
 
-Add `{ "id": "nobi.pixel-buddy" }` to `plugins` and to `bar.layout.right` in `~/.config/omarchy/shell.json`.
-On first start the buddy creates `packs/` and the default pack, **Goop** the slime.
+`omarchy plugin add` asks you to confirm, clones the plugin into `~/.config/omarchy/plugins/nobi.pixel-buddy`
+and asks which bar section the widget goes in (right is a good spot). The buddy appears on your desktop
+a moment later as **Goop** the slime, the default pack.
+
+<details>
+<summary>Installing by hand instead</summary>
+
+```bash
+git clone https://github.com/NobiBot/omarchy-pixel-buddy ~/.config/omarchy/plugins/nobi.pixel-buddy
+omarchy plugin enable nobi.pixel-buddy --section right
+```
+
+Or add `{ "id": "nobi.pixel-buddy" }` to `bar.layout.right` in `~/.config/omarchy/shell.json` yourself.
+</details>
 
 > [!NOTE]
-> Needs `jq`, `socat`, `notify-send`, `inotify-tools`, `python-pillow` and `qt6-imageformats`.
-> Aseprite is optional. After changing the plugin's QML yourself, run `omarchy restart shell`.
+> Aseprite is optional (see [Draw your own buddy](#3-draw-your-own-buddy)). If you change the plugin's QML
+> files yourself, run `omarchy restart shell` to load them.
 
 ## 2. Connect Claude Code and Codex
 
@@ -56,7 +71,8 @@ On first start the buddy creates `packs/` and the default pack, **Goop** the sli
 ~/.config/omarchy/plugins/nobi.pixel-buddy/bin/pixel-buddy-install-hooks   # --uninstall to remove
 ```
 
-This backs up and edits `~/.claude/settings.json` and `~/.codex/hooks.json`. Start a session and the buddy follows along:
+This backs up and edits `~/.claude/settings.json` and `~/.codex/hooks.json`; add `--claude-only` or
+`--codex-only` to set up just one. Start a new Claude Code or Codex session and the buddy follows along:
 
 | <img src="docs/img/goop-work-thinking.gif" width="110"> | <img src="docs/img/goop-work-working.gif" width="110"> | <img src="docs/img/goop-work-reviewing.gif" width="110"> | <img src="docs/img/goop-work-waiting.gif" width="110"> | <img src="docs/img/goop-work-success.gif" width="110"> | <img src="docs/img/goop-work-error.gif" width="110"> |
 |:---:|:---:|:---:|:---:|:---:|:---:|
@@ -69,13 +85,17 @@ state `~/.local/state/pixel-buddy/`, IPC `omarchy-shell pixel-buddy …`), so it
 
 ![The canvas, the feet line and the hitbox](docs/img/canvas.png)
 
-1. Left-click the buddy icon in the bar → **+ New** → type a name.
+1. Left-click the buddy icon in the bar → **+ New** → type a name → **Enter**. Your buddy switches to the
+   new, empty pack and its canvas opens in Aseprite.
 2. Draw your character **facing left** near the bottom of the 128 × 72 canvas, on a transparent background.
 3. Save (**Ctrl+S**). About a second later it's on your desktop.
 
 That one `idle` animation is enough to start. The **[quick setup guide](docs/quick-setup.md)** covers the rest:
-frames, tags, the feet line, and adding walks and reactions. No Aseprite? Any editor that exports GIF or a PNG strip works, such as
-[LibreSprite](https://libresprite.github.io/) (free); see [Other editors](docs/quick-setup.md#other-editors).
+frames, tags, the feet line, and adding walks and reactions.
+
+**No Aseprite?** Step 1 makes a blank 128 × 72 `idle.png` instead. Click **Folder** in the widget and open it
+in any pixel-art editor, such as [LibreSprite](https://libresprite.github.io/) (free). See
+[Other editors](docs/quick-setup.md#other-editors) for animations and sprite sheets.
 
 ## 4. Give it a voice
 
@@ -92,13 +112,21 @@ can stay quiet. You can give lines to any animation too: a sleepy “zzz…” w
 New to pixel art? Start with the **[quick setup guide](docs/quick-setup.md)**: it walks through drawing
 your first buddy and how to place it on the canvas so it stands on the ground.
 
-Every buddy design is a **pack**: a folder in `packs/` holding the art plus an optional `pack.json`.
-`packs/` is a symlink to `~/.local/share/pixel-buddy/packs/`. Omarchy reloads every plugin when a file
-inside `~/.config/omarchy/plugins/` changes, and the symlink keeps pack edits and rebuilds from
-triggering that. Goop, the slime, is the `default` pack (`templates/buddy.aseprite` and `templates/pack.json`,
-with its geometry and phrases, recreate it on a fresh install); duplicate it from its right-click menu
-if you want to start from the slime. Without Aseprite the install gets `templates/buddy.png` + `buddy.json` instead,
-a PNG sheet of the same frames. After editing the template, run `bin/pixel-buddy-pack template-png` to re-export the PNG.
+Every buddy design is a **pack**: a folder in `~/.local/share/pixel-buddy/packs/` holding the art plus an
+optional `pack.json`. The plugin links it as `packs/`. The packs live outside the plugin folder because
+Omarchy reloads every plugin when a file inside `~/.config/omarchy/plugins/` changes.
+
+**Goop**, the slime, is the pack called `default`. To start a new buddy from the slime, right-click Goop in
+the widget → **Duplicate**.
+
+<details>
+<summary>Where Goop comes from (for editing the default)</summary>
+
+On the first start the plugin copies `templates/buddy.aseprite` and `templates/pack.json` (geometry and
+phrases) into `packs/default/`. Without Aseprite it copies `templates/buddy.png` + `buddy.json` instead, a PNG
+sheet of the same frames. After editing `templates/buddy.aseprite`, run `bin/pixel-buddy-pack template-png`
+to re-export the PNG.
+</details>
 
 A pack can mix these formats:
 
@@ -121,14 +149,15 @@ own **chance %**; ones left on auto share what the others leave, in the same pro
 from the **walk** role (one walk cycle is enough; it loops for the whole trip) while the buddy slides
 across the screen at the pack's walk speed (Behavior tab, canvas pixels per second). It walks the way
 it faces. With a **turn** animation it turns around now and then; without one it picks a direction
-for every walk and simply flips. Right-click the buddy → the walk entry starts a walk right away.
+for every walk and simply flips. To start a walk right away, right-click the buddy → **Actions** → **Move** → the walk.
 
 The buddy is centred on its hitbox, so a character drawn off-centre on the canvas still walks and
 flips in place; set the hitbox around the body with the geometry editor's **Fit to sprite**.
 
 ## The bar widget
 
-Add `nobi.pixel-buddy` to the bar (it sits in `bar.layout.right` of `~/.config/omarchy/shell.json`).
+`omarchy plugin add … --enable` puts the widget on the bar. To move it later, run
+`omarchy plugin enable nobi.pixel-buddy --section left` (or `center`, `right`).
 The icon is your buddy's first idle frame. **Left-click** opens the popup and **right-click** hides or
 shows the buddy.
 
@@ -227,7 +256,7 @@ Each **top-level** key you write replaces the default key as a whole. So if you 
     "hitBox": [46, 38, 82, 67],     // x0, y0, x1, y1: the click/drag/bubble area
     "fps": 10,                      // your frame rate; used to time walks
     "minPlaySec": 5,                // short loops (idle, actions, walks, events) repeat until at least this long
-    "playSec": { "walk": 3 }        // per-animation override in seconds; 0 = play once
+    "playSec": { "walk": 3 }        // e.g. per-animation length in seconds (default {}); 0 = play once
   },
   "buddies": [{ "name": "Pixel", "id": "main", "size": 384, "position": { "corner": "bottom-right", "marginX": 24, "marginY": 0 } }]
 }
@@ -237,7 +266,7 @@ Each **top-level** key you write replaces the default key as a whole. So if you 
 - **Timing:** the builder records each animation's real loop length, so held frames and per-frame durations are timed correctly.
 - **`size`** is the on-screen width when the pack sets no `scale`. Keep it a whole multiple of the canvas width (384 = 128 × 3) so pixels stay square and even.
 - **`whisperPrompt`** is the buddy's personality for murmurs and chat.
-- **Stickers:** put PNGs in `assets/memes/` and list them under `memes` as `"file name without .png": "when to use it"`. Chat and murmur bubbles can then show them.
+- **Stickers:** create `assets/memes/` in the plugin folder, put PNGs in it, and list them under `memes` as `"file name without .png": "when to use it"`. Chat and murmur bubbles can then show them.
 - **Other options** (physics, usage, LLM, step summaries) work like the original. See the [agent-pet configuration reference](https://github.com/chthollyphile/agent-pet#configuration).
 
 ## Commands
@@ -245,6 +274,7 @@ Each **top-level** key you write replaces the default key as a whole. So if you 
 ```bash
 omarchy-shell pixel-buddy play work-success   # play an animation by name (handy for testing)
 omarchy-shell pixel-buddy say "hello"
+omarchy-shell pixel-buddy chat "how's it going?"   # ask the buddy something; it answers in its bubble
 omarchy-shell pixel-buddy usage | whisper | toggle | reload | state
 omarchy-shell pixel-buddy packs                 # list packs as JSON
 omarchy-shell pixel-buddy usePack mochi         # all buddies; or main=mochi for one buddy
