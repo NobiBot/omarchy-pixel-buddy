@@ -246,6 +246,7 @@ Panel {
 
   onOpenedChanged: if (opened) {
     findService()
+    if (service) service.checkSetup()
     mode = "home"
     creating = false
     confirmDelete = false
@@ -392,6 +393,85 @@ Panel {
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
+            }
+          }
+
+          // ---------- first-run setup: Pillow (needed to build packs) and the agent hooks (asks first)
+          Rectangle {
+            id: setupCard
+            readonly property bool needPillow: !!root.service && root.service.pillowMissing
+            readonly property var agents: root.service ? root.service.agentsToConnect : []
+            visible: root.mode === "home" && (needPillow || (agents.length > 0 && !root.service.setupDismissed))
+            width: parent.width
+            height: visible ? setupCol.implicitHeight + Style.spacing.md * 2 : 0
+            radius: Style.cornerRadius
+            color: Qt.rgba(root.warn.r, root.warn.g, root.warn.b, 0.12)
+            border.color: root.warn
+            border.width: 1
+
+            Column {
+              id: setupCol
+              x: Style.spacing.md
+              y: Style.spacing.md
+              width: parent.width - Style.spacing.md * 2
+              spacing: Style.spacing.md
+
+              Text {
+                text: "Finish setup"
+                color: root.fg
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+                font.bold: true
+              }
+              Text {
+                visible: setupCard.needPillow
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "The buddy needs Pillow (python-pillow) to build its animations. Install opens a terminal that asks for your password; the buddy appears a few seconds after it finishes."
+                color: root.fg
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+              Text {
+                visible: setupCard.agents.length > 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: "Connect " + setupCard.agents.map(function(a) { return a === "codex" ? "Codex" : "Claude Code" }).join(" and ")
+                  + " so the buddy acts out what your agent is doing. This adds hooks to "
+                  + setupCard.agents.map(function(a) { return a === "codex" ? "~/.codex/hooks.json" : "~/.claude/settings.json" }).join(" and ")
+                  + " (backed up first)."
+                color: root.fg
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+              Flow {
+                width: parent.width
+                spacing: Style.spacing.md
+                Button {
+                  visible: setupCard.needPillow
+                  text: "Install Pillow"
+                  bordered: true
+                  selected: true
+                  fontSize: Style.font.bodySmall
+                  onClicked: root.service.installPillow()
+                }
+                Button {
+                  visible: setupCard.agents.length > 0
+                  text: root.service && root.service.hooksBusy ? "Connecting…" : "Connect " + (setupCard.agents.length > 1 ? "agents" : setupCard.agents[0] === "codex" ? "Codex" : "Claude Code")
+                  bordered: true
+                  selected: !setupCard.needPillow
+                  fontSize: Style.font.bodySmall
+                  onClicked: root.service.connectAgents()
+                }
+                Button {
+                  visible: !setupCard.needPillow
+                  text: "Not now"
+                  bordered: true
+                  fontSize: Style.font.bodySmall
+                  tooltipText: "Hide this; Connect stays on the home screen"
+                  onClicked: root.service.dismissSetup()
+                }
+              }
             }
           }
 
@@ -700,6 +780,14 @@ Panel {
               Button { text: "Phrases"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "What the buddy says with this pack while Claude Code or Codex works"; onClicked: root.edit("phrases") }
               Button { text: "Rebuild"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Export the pack again from its source files"; onClicked: root.service.rebuildPack(root.packId) }
               Button { text: "Folder"; bordered: true; fontSize: Style.font.bodySmall; tooltipText: "Open this pack's folder in ~/.local/share/pixel-buddy/packs"; onClicked: root.service.openPackFolder(root.packId) }
+              Button {
+                visible: !!root.service && root.service.setupDismissed && root.service.agentsToConnect.length > 0
+                text: "Connect agents"
+                bordered: true
+                fontSize: Style.font.bodySmall
+                tooltipText: "Add the Claude Code / Codex hooks so the buddy shows what your agent is doing"
+                onClicked: root.service.connectAgents()
+              }
             }
 
             // Aseprite clicked but not installed

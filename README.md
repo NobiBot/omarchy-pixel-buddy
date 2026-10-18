@@ -39,21 +39,25 @@ LibreSprite. (An experimental built-in pixel editor lives on the `experimental/p
 
 ## 1. Install
 
-Install the packages it needs, then add the plugin:
-
 ```bash
-omarchy pkg add jq socat libnotify inotify-tools python-pillow qt6-imageformats
 omarchy plugin add https://github.com/NobiBot/omarchy-pixel-buddy --enable
 ```
 
-`omarchy plugin add` asks you to confirm, clones the plugin into `~/.config/omarchy/plugins/nobi.pixel-buddy`
-and asks which bar section the widget goes in (right is a good spot). The buddy appears on your desktop
-a moment later as **Goop** the slime, the default pack.
+It asks you to confirm and which bar section the widget goes in (right is a good spot). Then **click the
+buddy icon in the bar**: a **Finish setup** card lists anything still missing, with a button for each:
+
+- **Install Pillow**, if your system doesn't have it yet. The pack builder needs it; a terminal opens and
+  asks for your password. A notification tells you when this is missing.
+- **Connect Claude Code / Codex**, for the agents you have installed (see the next step).
+
+Then **Goop** the slime, the default pack, appears on your desktop. Everything else it uses (`jq`, `socat`,
+`notify-send`, `inotify-tools`, `qt6-imageformats`) comes with Omarchy.
 
 <details>
 <summary>Installing by hand instead</summary>
 
 ```bash
+omarchy pkg add python-pillow
 git clone https://github.com/NobiBot/omarchy-pixel-buddy ~/.config/omarchy/plugins/nobi.pixel-buddy
 omarchy plugin enable nobi.pixel-buddy --section right
 ```
@@ -67,12 +71,15 @@ Or add `{ "id": "nobi.pixel-buddy" }` to `bar.layout.right` in `~/.config/omarch
 
 ## 2. Connect Claude Code and Codex
 
+Click **Connect** in the Finish setup card (or **Connect agents** on the widget's home screen if you
+picked Not now). It backs up and edits `~/.claude/settings.json` and/or `~/.codex/hooks.json`, only for
+the agents you have. From a terminal instead:
+
 ```bash
-~/.config/omarchy/plugins/nobi.pixel-buddy/bin/pixel-buddy-install-hooks   # --uninstall to remove
+~/.config/omarchy/plugins/nobi.pixel-buddy/bin/pixel-buddy-install-hooks   # --claude-only, --codex-only, --uninstall
 ```
 
-This backs up and edits `~/.claude/settings.json` and `~/.codex/hooks.json`; add `--claude-only` or
-`--codex-only` to set up just one. Start a new Claude Code or Codex session and the buddy follows along:
+Start a new Claude Code or Codex session and the buddy follows along:
 
 | <img src="docs/img/goop-work-thinking.gif" width="110"> | <img src="docs/img/goop-work-working.gif" width="110"> | <img src="docs/img/goop-work-reviewing.gif" width="110"> | <img src="docs/img/goop-work-waiting.gif" width="110"> | <img src="docs/img/goop-work-success.gif" width="110"> | <img src="docs/img/goop-work-error.gif" width="110"> |
 |:---:|:---:|:---:|:---:|:---:|:---:|

@@ -298,7 +298,87 @@ Scope {
   Timer {
     id: watcherRestart
     interval: 5000
-    onTriggered: packWatcher.running = true
+    onTriggered: {
+      // Without Pillow the watcher exits right away; this notices when it gets installed
+      if (root.pillowMissing) pillowCheck.running = true
+      packWatcher.running = true
+    }
+  }
+
+  // ------------------------------------------------------------ First-run setup
+  // A stock Omarchy has everything but Pillow, which the pack builder needs, and the agent hooks
+  // edit Claude Code's and Codex's settings, so both wait for the user in the bar widget's setup card.
+  readonly property string hooksTool: pluginDir + "/bin/pixel-buddy-install-hooks"
+  property bool pillowMissing: false
+  property bool pillowNotified: false
+  // { claude: { installed, connected }, codex: { … } } from pixel-buddy-install-hooks --status
+  property var agentSetup: ({})
+  property bool hooksBusy: false
+  readonly property var agentsToConnect: ["claude", "codex"].filter(function(a) {
+    var st = agentSetup[a]
+    return !!st && st.installed && !st.connected
+  })
+  readonly property bool setupDismissed: uiState.setupDismissed === true
+
+  Process {
+    id: pillowCheck
+    command: ["python3", "-I", "-c", "import PIL"]
+    running: true
+    onExited: function(exitCode) {
+      root.pillowMissing = exitCode !== 0
+      if (root.pillowMissing && !root.pillowNotified) {
+        root.pillowNotified = true
+        Quickshell.execDetached(["notify-send", "-a", "pixel-buddy", "-i", root.pluginDir + "/assets/pic/notify-approval.png",
+          "Pixel Buddy needs Pillow", "Click the buddy icon in the bar to finish setup."])
+      }
+    }
+  }
+
+  function installPillow() {
+    Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", "omarchy pkg add python-pillow"])
+  }
+
+  Process {
+    id: hooksStatus
+    command: [root.hooksTool, "--status"]
+    running: true
+    stdout: StdioCollector { id: hooksStatusOut }
+    onExited: function(exitCode) {
+      try {
+        if (exitCode === 0) root.agentSetup = JSON.parse(hooksStatusOut.text)
+      } catch (e) {
+        console.warn("[pixel-buddy] hook status: " + e)
+      }
+    }
+  }
+
+  function checkSetup() {
+    if (!hooksStatus.running) hooksStatus.running = true
+    if (pillowMissing && !pillowCheck.running) pillowCheck.running = true
+  }
+
+  // Hooks up only the agents that are installed, so this never creates ~/.codex for a Claude-only user
+  function connectAgents() {
+    var todo = agentsToConnect
+    if (!todo.length || hooksBusy) return
+    hooksBusy = true
+    hooksInstall.command = [hooksTool].concat(todo.length === 1 ? ["--" + todo[0] + "-only"] : [])
+    hooksInstall.running = true
+  }
+
+  Process {
+    id: hooksInstall
+    stderr: StdioCollector { id: hooksInstallErr }
+    onExited: function(exitCode) {
+      root.hooksBusy = false
+      if (exitCode === 0) root.showPackMessage("Connected. New Claude Code and Codex sessions now show on the buddy.", false)
+      else root.showPackMessage(hooksInstallErr.text.trim() || "Could not install the agent hooks", true)
+      hooksStatus.running = true
+    }
+  }
+
+  function dismissSetup() {
+    saveUiState(Object.assign({}, uiState, { setupDismissed: true }))
   }
 
   FileView {
@@ -323,10 +403,14 @@ Scope {
     if (!packIndex[packId] && !pending) return "no-pack"
     var buddies = Object.assign({}, uiState.buddies || {})
     buddies[buddyId] = packId
-    uiState = Object.assign({}, uiState, { buddies: buddies })
-    uiFile.setText(JSON.stringify(uiState, null, 2) + "\n")
+    saveUiState(Object.assign({}, uiState, { buddies: buddies }))
     rebuildRuntimes()
     return "ok"
+  }
+
+  function saveUiState(next) {
+    uiState = next
+    uiFile.setText(JSON.stringify(uiState, null, 2) + "\n")
   }
 
   // Edits from the bar widget apply at once in memory and reach pack.json shortly after,

@@ -3,6 +3,7 @@
 # Idempotent: removes existing pixel-buddy-hook entries before adding; backs up each file as <file>.bak-pixel-buddy-<timestamp> before changing it.
 #
 # Usage: pixel-buddy-install-hooks [--uninstall] [--claude-only | --codex-only]
+#        pixel-buddy-install-hooks --status   (JSON: whether each agent is installed and hooked up)
 set -euo pipefail
 
 HOOK=$(cd "$(dirname "$0")" && pwd)/pixel-buddy-hook
@@ -17,11 +18,29 @@ targets="claude codex"
 for arg in "$@"; do
   case $arg in
     --uninstall) mode=uninstall ;;
+    --status) mode=status ;;
     --claude-only) targets=claude ;;
     --codex-only) targets=codex ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
+
+# $1 = agent command, $2 = its config folder, $3 = hooks file
+agent_status() {
+  local installed=false connected=false
+  if command -v "$1" >/dev/null 2>&1 || [[ -d $2 ]]; then installed=true; fi
+  if [[ -s $3 ]] && jq -e '[.hooks // {} | .[][]?.hooks[]?.command // ""] | any(test("pixel-buddy-hook"))' "$3" >/dev/null 2>&1; then
+    connected=true
+  fi
+  printf '{"installed":%s,"connected":%s}' "$installed" "$connected"
+}
+
+if [[ $mode == status ]]; then
+  printf '{"claude":%s,"codex":%s}\n' \
+    "$(agent_status claude "$(dirname "$CLAUDE_SETTINGS")" "$CLAUDE_SETTINGS")" \
+    "$(agent_status codex "$(dirname "$CODEX_HOOKS")" "$CODEX_HOOKS")"
+  exit 0
+fi
 
 # $1 = file, $2 = agent name, $3 = event list JSON
 patch_file() {
