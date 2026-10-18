@@ -1095,6 +1095,17 @@ Panel {
                         font.family: root.fontFamily
                         font.pixelSize: Style.font.caption
                       }
+                      // What the seconds field means in plays, the way Buddy.repeatsFor rounds it: whole loops, at least the time set
+                      Text {
+                        readonly property real loopSec: animRow.ms / 1000
+                        readonly property int plays: playField.value <= 0 || loopSec <= 0 ? 1 : Math.ceil(playField.value / loopSec - 1e-6)
+                        text: animRow.isWalk ? "loops for the whole walk"
+                          : plays === 1 ? "plays once"
+                          : "plays " + plays + "× (" + (plays * loopSec).toFixed(1) + " s) · set 0 s to play once"
+                        color: plays > 1 && !animRow.isWalk ? root.warn : root.dim
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.caption
+                      }
                     }
                     Row {
                       anchors.right: parent.right

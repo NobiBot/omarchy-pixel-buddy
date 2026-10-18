@@ -180,7 +180,8 @@ shows the buddy.
   "Think" → thinking). Dropdowns fix the rest. Roles with several animations pick one at random.
   A role with nothing mapped is skipped: the buddy just carries on (a work state still shows in the bubble). **Guess again** forgets your choices. Your source files
   are never renamed: the mapping is stored in `pack.json`.
-- **Behavior:** how long each animation loops, walk speed, and the chance % of each idle, walk, turn and
+- **Behavior:** how long each animation loops (in seconds, rounded up to whole plays; the line under each
+  animation says how many times it plays, and 0 s plays it once), walk speed, and the chance % of each idle, walk, turn and
   random action being picked next (like a phrase's chance; ↺ puts one back on auto).
 - **Geometry:** which way the art faces, the on-screen size, and **Open geometry editor**: drag
   the feet line and the hitbox (click/drag area; the speech bubble sits on its top edge) over a

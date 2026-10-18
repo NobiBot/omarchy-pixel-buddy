@@ -45,9 +45,32 @@ Item {
   property bool dragging: false
   // Short loops (pixel animations) repeat a few times before counting as played once; see repeatsFor()
   property int repeatLeft: 0
-  // After a source change currentFrame can jump straight to the last frame and look finished: a loop only counts once at least half its duration has played
-  // (by time rather than frame count: Qt skips frames when busy)
+  // A loop counts when currentFrame wraps back to the start, not when the last frame appears: the builder merges identical
+  // neighbouring frames, so a held final pose can be one long frame. After a source change currentFrame can also jump
+  // around, so a wrap only counts once at least half the loop has played (by time: Qt skips frames when busy).
   property real cycleStart: 0
+  property int lastFrame: 0
+
+  // Ends the final loop by time, just before it wraps to frame 0, so its last frame is shown for its whole duration
+  Timer {
+    id: loopEnd
+    onTriggered: {
+      var f = buddy.imgAt(buddy.front)
+      if (buddy.endFired || buddy.pendingName !== "") return
+      if (!buddy.dragging) f.playing = false // hold the last frame while the next animation loads
+      buddy.frontEnded(f)
+      // Nothing new is loading (dragged, or no idle to fall back to): keep looping as before
+      if (buddy.pendingName === "" && buddy.imgAt(buddy.front) === f) f.playing = true
+    }
+  }
+
+  function armEnd() {
+    loopEnd.stop()
+    var f = imgAt(front)
+    if (!once || repeatLeft > 0 || f.frameCount <= 1) return
+    loopEnd.interval = Math.max(0, cycleSec(anim, f.frameCount) * 1000 - 40 - (Date.now() - cycleStart))
+    loopEnd.start()
+  }
 
   function log(msg) {
     console.log("[pixel-buddy] " + Qt.formatTime(new Date(), "HH:mm:ss") + " buddy=" + cfg.id + " " + msg)
@@ -80,6 +103,7 @@ Item {
 
   function play(name, nextOnce, role) {
     if (!name) return
+    loopEnd.stop()
     playRole = role || ""
     sayAnimLine(name)
     log("play " + name + (nextOnce ? "" : " (loop)"))
@@ -155,8 +179,10 @@ Item {
 
   function onFrontShown() {
     cycleStart = Date.now()
+    lastFrame = 0
     repeatLeft = repeatsFor(anim, imgAt(front).frameCount)
     if (pendingMove) startMoveDrive()
+    armEnd()
     if (pendingSquash) {
       pendingSquash = false
       startSquash(Shared.SQ_SQUASH)
@@ -165,14 +191,20 @@ Item {
 
   function frameTick(img) {
     if (img !== imgAt(front) || pendingName !== "") return
-    if (img.frameCount > 1 && img.currentFrame === img.frameCount - 1) {
-      var elapsed = Date.now() - cycleStart
-      if (elapsed < 500 * cycleSec(anim, img.frameCount)) {
-        log("ignored early end of " + anim + " after " + elapsed + " ms")
-        return
-      }
-      cycleStart = Date.now()
-      frontEnded(img)
+    var wrapped = img.currentFrame < lastFrame
+    lastFrame = img.currentFrame
+    if (!wrapped || img.frameCount <= 1) return
+    var elapsed = Date.now() - cycleStart
+    if (elapsed < 500 * cycleSec(anim, img.frameCount)) {
+      log("ignored early loop of " + anim + " after " + elapsed + " ms")
+      return
+    }
+    cycleStart = Date.now()
+    if (repeatLeft > 0) {
+      repeatLeft--
+      armEnd()
+    } else {
+      frontEnded(img) // the end timer is late (Qt was busy): end now
     }
   }
 
