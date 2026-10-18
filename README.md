@@ -2,12 +2,12 @@
 
 <img align="right" src="docs/img/goop-hero.gif" width="240" alt="Goop, the default Pixel Buddy">
 
-**Your own pixel-art desktop buddy for [Omarchy](https://omarchy.org).** It lives above your windows, wanders around,
+**Your own pixel-art desktop buddy for [Omarchy](https://omarchy.org).** It lives below your windows, wanders around,
 naps, reacts when you poke it, and acts out what Claude Code and Codex are doing, so you can look away from the
 terminal and still know when it's your turn.
 
-Every buddy is a **sprite pack you draw yourself**, and a bar widget manages them. No pixel-art experience needed:
-there's a [step-by-step guide](docs/quick-setup.md). Draw in a pixel-art program such as Aseprite or the free
+Every buddy is a **sprite pack you draw yourself**, and a bar widget manages them.
+There's a [step-by-step guide](docs/quick-setup.md). Draw in a pixel-art program such as Aseprite or the free
 LibreSprite. (An experimental built-in pixel editor lives on the `experimental/pixel-editor` branch.)
 
 <img src="https://img.shields.io/badge/omarchy-plugin-7aa2f7" alt="Omarchy plugin"> <img src="https://img.shields.io/badge/works%20with-Claude%20Code%20%2B%20Codex-d97757" alt="Claude Code + Codex"> <img src="https://img.shields.io/badge/version-0.2.0-4c9a2a" alt="version 0.2.0"> <img src="https://img.shields.io/badge/license-MIT-007ec6" alt="MIT license">
