@@ -37,6 +37,17 @@ LibreSprite. (An experimental built-in pixel editor lives on the `experimental/p
   </tr>
 </table>
 
+**Three buddies to start with:** Goop, made by me, and two others (Clawd and Mochi), made by Claude Code.
+Each one has every animation and its own lines. Pick one in the bar widget, or draw your own.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/img/goop-hero.gif" width="150"><br><b>Goop</b> the slime<br><code>default</code></td>
+    <td align="center"><img src="docs/img/clawd-hero.gif" width="150"><br><b>Clawd</b>, Claude Code's mascot<br><code>clawd</code></td>
+    <td align="center"><img src="docs/img/mochi-hero.gif" width="150"><br><b>Mochi</b> the cat<br><code>mochi</code></td>
+  </tr>
+</table>
+
 ## 1. Install
 
 ```bash
@@ -50,7 +61,7 @@ buddy icon in the bar**: a **Finish setup** card lists anything still missing, w
   asks for your password. A notification tells you when this is missing.
 - **Connect Claude Code / Codex**, for the agents you have installed (see the next step).
 
-Then **Goop** the slime, the default pack, appears on your desktop. **Bolt** the robot and **Mochi** the cat
+Then **Goop** the slime, the default pack, appears on your desktop. **Clawd** (Claude Code's mascot) and **Mochi** the cat
 come along too: pick one in the bar widget. Everything else it uses (`jq`, `socat`,
 `notify-send`, `inotify-tools`, `qt6-imageformats`) comes with Omarchy.
 
@@ -124,18 +135,8 @@ Every buddy design is a **pack**: a folder in `~/.local/share/pixel-buddy/packs/
 optional `pack.json` (**Folder** in the widget opens it). The packs live outside the plugin folder because
 Omarchy reloads every plugin when a file inside `~/.config/omarchy/plugins/` changes.
 
-Three buddies come with the plugin, each with every animation and its own lines:
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/img/goop-hero.gif" width="150"><br><b>Goop</b> the slime<br><code>default</code></td>
-    <td align="center"><img src="docs/img/bolt-hero.gif" width="150"><br><b>Bolt</b> the robot<br><code>bolt</code></td>
-    <td align="center"><img src="docs/img/mochi-hero.gif" width="150"><br><b>Mochi</b> the cat<br><code>mochi</code></td>
-  </tr>
-</table>
-
-Pick one per buddy with **Use for <buddy>** in the widget. To start a new buddy from one of them, right-click
-it → **Duplicate**.
+Goop, Clawd and Mochi (see [What you get](#what-you-get)) are the packs `default`, `clawd` and `mochi`. To start a
+new buddy from one of them, right-click it in the widget → **Duplicate**.
 
 <details>
 <summary>Where the bundled buddies come from (for editing them)</summary>

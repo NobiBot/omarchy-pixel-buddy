@@ -116,7 +116,7 @@ Scope {
     var buddy = (config.buddies || []).filter(function(p) { return p.id === buddyId })[0]
     if (buddy && buddy.pack && packIndex[buddy.pack]) return buddy.pack
     if (packIndex["default"]) return "default"
-    // Prefer the user's own packs over Bolt, Mochi and the other bundled extras
+    // Prefer the user's own packs over Clawd, Mochi and the other bundled extras
     var own = packList.filter(function(p) { return !p.bundled })
     return own.length ? own[0].id : (packList.length ? packList[0].id : "")
   }
