@@ -14,7 +14,7 @@ LibreSprite. (An experimental built-in pixel editor lives on the `experimental/p
 
 <br clear="right">
 
-**Contents:** [Install](#1-install) · [Connect your agents](#2-connect-claude-code-and-codex) · [Draw your own](#3-draw-your-own-buddy) · [Give it a voice](#4-give-it-a-voice) · [The bar widget](#the-bar-widget) · [Sprite packs](#sprite-packs) · [Walking](#walking) · [Roles](#roles-and-the-default-packs-tag-names) · [Config](#config) · [Commands](#commands) · [Uninstall](#uninstall)
+**Contents:** [Install](#1-install) · [Connect your agents](#2-connect-claude-code-and-codex) · [Draw your own](#3-draw-your-own-buddy) · [Give it a voice](#4-give-it-a-voice) · [The bar widget](#the-bar-widget) · [Sprite packs](#sprite-packs) · [Walking](#walking) · [Roles](#roles-and-the-bundled-packs-tag-names) · [Config](#config) · [Commands](#commands) · [Uninstall](#uninstall)
 
 ## What you get
 
@@ -50,7 +50,8 @@ buddy icon in the bar**: a **Finish setup** card lists anything still missing, w
   asks for your password. A notification tells you when this is missing.
 - **Connect Claude Code / Codex**, for the agents you have installed (see the next step).
 
-Then **Goop** the slime, the default pack, appears on your desktop. Everything else it uses (`jq`, `socat`,
+Then **Goop** the slime, the default pack, appears on your desktop. **Bolt** the robot and **Mochi** the cat
+come along too: pick one in the bar widget. Everything else it uses (`jq`, `socat`,
 `notify-send`, `inotify-tools`, `qt6-imageformats`) comes with Omarchy.
 
 <details>
@@ -123,16 +124,27 @@ Every buddy design is a **pack**: a folder in `~/.local/share/pixel-buddy/packs/
 optional `pack.json` (**Folder** in the widget opens it). The packs live outside the plugin folder because
 Omarchy reloads every plugin when a file inside `~/.config/omarchy/plugins/` changes.
 
-**Goop**, the slime, is the pack called `default`. To start a new buddy from the slime, right-click Goop in
-the widget → **Duplicate**.
+Three buddies come with the plugin, each with every animation and its own lines:
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/img/goop-hero.gif" width="150"><br><b>Goop</b> the slime<br><code>default</code></td>
+    <td align="center"><img src="docs/img/bolt-hero.gif" width="150"><br><b>Bolt</b> the robot<br><code>bolt</code></td>
+    <td align="center"><img src="docs/img/mochi-hero.gif" width="150"><br><b>Mochi</b> the cat<br><code>mochi</code></td>
+  </tr>
+</table>
+
+Pick one per buddy with **Use for <buddy>** in the widget. To start a new buddy from one of them, right-click
+it → **Duplicate**.
 
 <details>
-<summary>Where Goop comes from (for editing the default)</summary>
+<summary>Where the bundled buddies come from (for editing them)</summary>
 
-On the first start the plugin copies `templates/buddy.aseprite` and `templates/pack.json` (geometry and
-phrases) into `~/.local/share/pixel-buddy/packs/default/`. Without Aseprite it copies `templates/buddy.png` + `buddy.json` instead, a PNG
-sheet of the same frames. After editing `templates/buddy.aseprite`, run `bin/pixel-buddy-pack template-png`
-to re-export the PNG.
+Each lives in `templates/<id>/`: `buddy.aseprite`, `pack.json` (geometry and phrases) and `buddy.png` +
+`buddy.json`, a PNG sheet of the same frames for installs without Aseprite. On start the plugin copies every
+bundled buddy it hasn't copied before into `~/.local/share/pixel-buddy/packs/<id>/` (so an update that adds a
+buddy brings it in, and one you deleted stays gone; `~/.local/share/pixel-buddy/bundled.json` keeps the list).
+After editing a `templates/<id>/buddy.aseprite`, run `bin/pixel-buddy-pack template-png <id>` to re-export the PNG.
 </details>
 
 A pack can mix these formats:
@@ -233,7 +245,7 @@ Each buddy's pack choice is stored in `~/.config/pixel-buddy/ui.json`. A buddy c
 }
 ```
 
-## Roles and the default pack's tag names
+## Roles and the bundled packs' tag names
 
 | Role | Tag names |
 |---|---|

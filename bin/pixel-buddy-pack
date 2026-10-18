@@ -17,8 +17,9 @@ lists every pack for the shell.
 
 Usage: pixel-buddy-pack init | index | build [ID…|--all] [--force] | new NAME | duplicate ID NAME
        | delete ID | save ID JSON | icons ID WAITING SUCCESS ERROR | aseprite ID | watch
-       | template-png
-template-png re-exports templates/buddy.aseprite as templates/buddy.png; run it after editing the template.
+       | template-png [ID…]
+template-png re-exports templates/ID/buddy.aseprite as templates/ID/buddy.png (every bundled pack
+when no ID is given); run it after editing a bundled pack.
 Set ASEPRITE=/path/to/aseprite if it isn't on PATH or in the Steam library.
 """
 
@@ -50,11 +51,11 @@ TRASH = os.path.join(os.path.dirname(DATA), "trash")
 CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or HOME + "/.cache", "pixel-buddy")
 BUILDS = os.path.join(CACHE, "packs")
 INDEX = os.path.join(CACHE, "index.json")
-TEMPLATE = os.path.join(PLUGIN, "templates", "buddy.aseprite")
-# The same art as a PNG drawing (exported from TEMPLATE), for installs without Aseprite
-TEMPLATE_PNG = os.path.join(PLUGIN, "templates", "buddy.png")
-# The default pack's settings (name, geometry, phrases), copied with the template on first start
-TEMPLATE_PACK = os.path.join(PLUGIN, "templates", "pack.json")
+# Bundled packs: templates/<id>/ holds buddy.aseprite, the same art as a PNG drawing (buddy.png +
+# buddy.json, for installs without Aseprite) and pack.json (name, geometry, phrases). "default" is Goop.
+TEMPLATES = os.path.join(PLUGIN, "templates")
+# Which bundled packs were already copied into DATA, so one the user deleted doesn't come back
+SEEDED = os.path.join(os.path.dirname(DATA), "bundled.json")
 SOURCE_EXT = {".aseprite": "aseprite", ".ase": "aseprite", ".png": "sheet", ".gif": "gif", ".webp": "webp"}
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
@@ -434,12 +435,13 @@ def build_pack(pid, force=False):
 
 def write_index(building=()):
     packs = []
+    bundled = set(seeded_ids() or [])
     for pid in pack_ids():
         data, perr = read_pack_json(pid)
         entry = {"id": pid, "dir": pack_dir(pid), "pack": data or {}, "packError": perr,
                  "name": (data or {}).get("name") or pid, "author": (data or {}).get("author") or "",
                  "sources": sources(pid), "status": "unbuilt", "builtAt": 0, "canvas": None,
-                 "animations": {}, "errors": [], "warnings": []}
+                 "animations": {}, "errors": [], "warnings": [], "bundled": pid in bundled}
         try:
             man = read_json(os.path.join(BUILDS, pid, "manifest.json"))
             entry.update(builtAt=man.get("builtAt", 0), webpDir=man.get("webpDir", "webp"), canvas=man.get("canvas"),
@@ -497,23 +499,57 @@ def needs_build(pid):
 
 # ------------------------------------------------------------------ commands
 
+def template_ids():
+    """Bundled packs, Goop ("default") first."""
+    if not os.path.isdir(TEMPLATES):
+        return []
+    ids = sorted(d for d in os.listdir(TEMPLATES)
+                 if ID_RE.match(d) and os.path.isfile(os.path.join(TEMPLATES, d, "buddy.aseprite")))
+    return sorted(ids, key=lambda d: d != "default")
+
+
+def seeded_ids():
+    try:
+        return list(read_json(SEEDED).get("seeded") or [])
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def copy_template(tid):
+    src, d = os.path.join(TEMPLATES, tid), os.path.join(DATA, tid)
+    os.makedirs(d)
+    png = os.path.join(src, "buddy.png")
+    if find_aseprite() or not os.path.isfile(png):
+        shutil.copy2(os.path.join(src, "buddy.aseprite"), os.path.join(d, "buddy.aseprite"))
+    else:
+        shutil.copy2(png, os.path.join(d, "buddy.png"))
+        shutil.copy2(os.path.join(src, "buddy.json"), os.path.join(d, "buddy.json"))
+    if os.path.isfile(os.path.join(src, "pack.json")):
+        shutil.copy2(os.path.join(src, "pack.json"), os.path.join(d, "pack.json"))
+    else:
+        write_json(os.path.join(d, "pack.json"), {"name": tid.capitalize()})
+
+
 def cmd_init(quiet=False):
-    """Create the data folder and a default pack on first run."""
+    """Create the data folder and copy in every bundled pack not copied before."""
     os.makedirs(DATA, exist_ok=True)
     os.makedirs(BUILDS, exist_ok=True)
-    if not pack_ids() and os.path.isfile(TEMPLATE):
-        d = os.path.join(DATA, "default")
-        os.makedirs(d)
-        if find_aseprite() or not os.path.isfile(TEMPLATE_PNG):
-            shutil.copy2(TEMPLATE, os.path.join(d, "buddy.aseprite"))
-        else:
-            shutil.copy2(TEMPLATE_PNG, os.path.join(d, "buddy.png"))
-            shutil.copy2(os.path.splitext(TEMPLATE_PNG)[0] + ".json", os.path.join(d, "buddy.json"))
-        if os.path.isfile(TEMPLATE_PACK):
-            shutil.copy2(TEMPLATE_PACK, os.path.join(d, "pack.json"))
-        else:
-            write_json(os.path.join(d, "pack.json"), {"name": "Default"})
-        log("created the default pack from the template")
+    seeded = seeded_ids()
+    if seeded is None:
+        # Before bundled.json existed only Goop was copied, on the first start
+        seeded = ["default"] if pack_ids() else []
+    added = []
+    for tid in template_ids():
+        if tid in seeded:
+            continue
+        if not os.path.exists(os.path.join(DATA, tid)):
+            copy_template(tid)
+            added.append(tid)
+        seeded.append(tid)
+    if seeded != seeded_ids():
+        write_json(SEEDED, {"seeded": seeded})
+    if added:
+        log("added bundled packs: %s" % ", ".join(added))
     elif not quiet:
         log("packs: %s" % (", ".join(pack_ids()) or "none"))
 
@@ -643,7 +679,7 @@ def cmd_aseprite(pid):
 
 
 # ------------------------------------------------------------------ drawings
-# A drawing is a PNG sheet with the simple JSON sidecar (the template's PNG copy of Goop).
+# A drawing is a PNG sheet with the simple JSON sidecar (the bundled packs' PNG copies).
 
 DRAWING_COLS = 16
 
@@ -671,15 +707,16 @@ def write_drawing(d, name, w, h, anims):
     os.replace(tmp, os.path.join(d, name))
 
 
-def cmd_template_png():
-    """Export the default pack's template as a PNG drawing, for installs without Aseprite."""
-    with tempfile.TemporaryDirectory(prefix="pixel-buddy-") as tmp:
-        anims = load_aseprite(TEMPLATE, find_aseprite(), tmp)
-    w = max(f.width for fr, _ in anims.values() for f in fr)
-    h = max(f.height for fr, _ in anims.values() for f in fr)
-    write_drawing(os.path.dirname(TEMPLATE_PNG), os.path.basename(TEMPLATE_PNG), w, h,
-                  [(n, fr, ms) for n, (fr, ms) in anims.items()])
-    log("wrote %s (%d animations)" % (TEMPLATE_PNG, len(anims)))
+def cmd_template_png(ids):
+    """Export bundled packs as PNG drawings, for installs without Aseprite."""
+    for tid in ids or template_ids():
+        src = os.path.join(TEMPLATES, tid)
+        with tempfile.TemporaryDirectory(prefix="pixel-buddy-") as tmp:
+            anims = load_aseprite(os.path.join(src, "buddy.aseprite"), find_aseprite(), tmp)
+        w = max(f.width for fr, _ in anims.values() for f in fr)
+        h = max(f.height for fr, _ in anims.values() for f in fr)
+        write_drawing(src, "buddy.png", w, h, [(n, fr, ms) for n, (fr, ms) in anims.items()])
+        log("wrote templates/%s/buddy.png (%d animations)" % (tid, len(anims)))
 
 
 def die_with_parent():
@@ -784,7 +821,7 @@ def main(argv):
         elif cmd == "watch":
             cmd_watch()
         elif cmd == "template-png":
-            cmd_template_png()
+            cmd_template_png(args)
         else:
             print(__doc__.strip(), file=sys.stderr)
             return 2

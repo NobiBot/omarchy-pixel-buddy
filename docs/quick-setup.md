@@ -68,7 +68,7 @@ Good next ones, in order of how often you'll see them:
 | `click-hop` | You click it | A short hop or wiggle. |
 | `turn` | Turning around | Must end facing **right**. Optional: without it the buddy just flips. |
 | `sleep`, `stretch` | Random actions | Any idle-time fun. |
-| `work-thinking`, `work-working`, … | Claude Code / Codex status | See the role list in the [README](../README.md#roles-and-the-default-packs-tag-names). |
+| `work-thinking`, `work-working`, … | Claude Code / Codex status | See the role list in the [README](../README.md#roles-and-the-bundled-packs-tag-names). |
 
 You don't have to use these names. Call your tags whatever you like, then open the bar popup → **Edit pack → Roles** and pick which animation plays for what.
 Anything you leave out is simply skipped.

@@ -1,0 +1,81 @@
+{
+  "name": "Mochi",
+  "author": "nobi",
+  "scale": 2,
+  "hitBox": [
+    44,
+    31,
+    84,
+    66
+  ],
+  "feetY": 64,
+  "facing": "left",
+  "phrases": [
+    [
+      "Hmm... let me think, mrrow",
+      "Pondering with my whiskers",
+      "Thinking cat thoughts~"
+    ],
+    [
+      "Paws on the keyboard!",
+      "Busy kneading this code",
+      "Don't pet me, I'm working"
+    ],
+    [
+      "That bit's done, purr~",
+      "One step down, next!"
+    ],
+    [
+      "Meow? Need you here",
+      "Your turn, human",
+      "Waiting... patiently... ish"
+    ],
+    [
+      "All done! Treats now?",
+      "Purrfect, task complete!"
+    ],
+    [
+      "Hiss! That didn't work",
+      "I think I knocked something over...",
+      "Stuck. Help a cat out?"
+    ]
+  ],
+  "animPhrases": {
+    "walk": [
+      {
+        "text": "*pitter patter*",
+        "chance": 30
+      }
+    ],
+    "drag": [
+      {
+        "text": "I did NOT agree to this",
+        "chance": 90
+      }
+    ],
+    "stretch": [
+      {
+        "text": "Mrrrraow~",
+        "chance": 50
+      }
+    ],
+    "look-at-wallpaper": [
+      "Ooh... is that a bird?"
+    ]
+  },
+  "roles": {
+    "actions": [
+      "sleep",
+      "stretch",
+      "look-at-wallpaper"
+    ]
+  },
+  "behavior": {
+    "playSec": {
+      "look-at-wallpaper": 0
+    },
+    "chance": {
+      "look-at-wallpaper": 2
+    }
+  }
+}
